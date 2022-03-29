@@ -30,7 +30,7 @@ import MedEye3d.OpenGLDisplayUtils
 import MedEye3d.DisplayWords.textLinesFromStrings
 import MedEye3d.StructsManag.getThreeDims
 
-using Main.distinctColorsSaved
+using ..distinctColorsSaved
 
 using MedEval3D
 using MedEval3D.BasicStructs
