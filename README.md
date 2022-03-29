@@ -13,3 +13,4 @@ HDF5.jl - Julia interface to HDF5 file system which is proven to give higher per
 
 MONAI - Python package called in Julia using PythonCall - used for preprocessing
 
+Tutorial can be found on https://github.com/jakubMitura14/MedPipe3DTutorial/tree/master
