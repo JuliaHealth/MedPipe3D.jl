@@ -14,7 +14,6 @@ module visualizationFromHdf5
 
 export getGroupOrCreate,getArrByName,loadFromHdf5Prim,getSomeColor,openHDF5,calculateAndDisplay,writeGroupAttribute
 
-using Revise
 import MedEye3d
 import MedEye3d.ForDisplayStructs
 import MedEye3d.ForDisplayStructs.TextureSpec
