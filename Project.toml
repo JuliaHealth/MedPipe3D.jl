@@ -1,4 +1,4 @@
-name = "MedPipe3D.jl"
+name = "MedPipe3D"
 uuid = "80492ae4-ba08-4770-a16e-2cec06b8739e"
 authors = ["Jakub Mitura <53857487+jakubMitura14@users.noreply.github.com>"]
 version = "0.1.0"
