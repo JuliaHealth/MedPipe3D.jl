@@ -232,7 +232,7 @@ mainScrollDat = FullScrollableDat(dataToScrollDims =datToScrollDimsB
                                  ,fractionOfMainIm ,datToScrollDimsB ,1000);
 
 
-                                 Main.SegmentationDisplay.passDataForScrolling(mainScrollDat);
+                                 SegmentationDisplay.passDataForScrolling(mainScrollDat);
 
 return mainScrollDat
 
