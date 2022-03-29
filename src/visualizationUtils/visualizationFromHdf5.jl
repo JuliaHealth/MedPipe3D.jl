@@ -130,7 +130,7 @@ fractionOfMainIm - effectively will set how much space is left for text display
 addTextSpecs - additional texture specifications required to define and save some of the masks
 """
 function loadFromHdf5Prim(fid, patienGroupName::String
-  , addTextSpecs::Vector{TextureSpec},listOfColorUsed,fractionOfMainIm::Float32= Float32(0.8) )
+  , addTextSpecs,listOfColorUsed,fractionOfMainIm::Float32= Float32(0.8) )
 
 #marks what colors are already used 
   group = fid[patienGroupName]
