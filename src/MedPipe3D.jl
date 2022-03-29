@@ -1,4 +1,4 @@
-module MedPipe
+module MedPipe3D
 
 include(joinpath("structs","distinctColorsSaved.jl"))
 include(joinpath("fromMonai","LoadFromMonai.jl"))
