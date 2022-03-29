@@ -12,7 +12,7 @@ supported 'dataType' attributes for dataSets
 module visualizationFromHdf5
   
 
-export getArrByName,loadFromHdf5Prim,getSomeColor,openHDF5,calculateAndDisplay
+export getGroupOrCreate,getArrByName,loadFromHdf5Prim,getSomeColor,openHDF5,calculateAndDisplay,writeGroupAttribute
 
 using Revise
 import MedEye3d
@@ -45,6 +45,31 @@ function openHDF5(pathToHDF5)
 
 end
 
+"""
+Writes group attribute - simple wrapper
+group - object representing the group
+attrName - name of the attribute
+value - value of the attribute
+"""
+function writeGroupAttribute(fid,groupName, attrName, value)
+  group = fid[groupName]
+  write_attribute(group, attrName, value)
+end
+
+
+"""
+return the HDF5 group if it is not already present in dataset it creates it 
+  fid - HDF5 object 
+  groupName - string representing group of intrest 
+"""
+function getGroupOrCreate(fid, groupName)
+  if(!haskey(fid, groupName))
+    return create_group(fid, groupName)
+  end
+  #in case it is already created
+  return fid[groupName]
+    
+end
 
 
 """
@@ -138,10 +163,7 @@ end#for
     dset = group[maskName]
     dataTypeStr= attributes(dset)["dataType"][]
     #additional arrays are saved and loaded as is
-    voxels =  if(maskName in addTextureNames )
-                  voxels = dset[:,:,:]
-                else permuteAndReverse(dset[:,:,:])
-              end  
+    voxels =  dset[:,:,:]
 
 
     # @info " mask name   " maskName
