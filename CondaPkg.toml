@@ -6,4 +6,5 @@ python = ">=3.5,<4"
 monai = ""
 nibabel = ""
 simpleitk = ""
+pyradiomics = "3.0.1"
 
