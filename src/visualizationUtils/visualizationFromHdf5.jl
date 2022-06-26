@@ -13,7 +13,7 @@ module visualizationFromHdf5
   
 
 export getGroupOrCreate,getArrByName,loadFromHdf5Prim,getSomeColor,openHDF5,calculateAndDisplay,writeGroupAttribute
-
+import MedEye3d.StructsManag
 import MedEye3d
 import MedEye3d.ForDisplayStructs
 import MedEye3d.ForDisplayStructs.TextureSpec
@@ -200,7 +200,7 @@ end#for
 
 
 
-print(textureSpecifications) #TODO (remove)
+#print(textureSpecifications) #TODO (remove)
 
 spacingList = attributes(group)["spacing"][]
 spacing=(Int64(spacingList[1]),Int64(spacingList[2]),Int64(spacingList[3]))
