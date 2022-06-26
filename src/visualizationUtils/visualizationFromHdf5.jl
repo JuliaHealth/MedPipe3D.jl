@@ -200,7 +200,7 @@ end#for
 
 
 
-
+print(textureSpecifications) #TODO (remove)
 
 spacingList = attributes(group)["spacing"][]
 spacing=(Int64(spacingList[1]),Int64(spacingList[2]),Int64(spacingList[3]))
