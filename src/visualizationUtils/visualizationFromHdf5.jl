@@ -338,8 +338,25 @@ function giveStringsFromResultMetrics(res,conf::ConfigurtationStruct)::Vector{St
 
 end
   
-  
-  
+"""
+refresh image after some modifications are performed
+actor - main actor processing GUI
+"""
+function refresh(actor)
+  current = actor.actor.currentDisplayedSlice
+  singleSlDat= actor.actor.onScrollData.dataToScroll|>
+  (scrDat)-> map(threeDimDat->threeToTwoDimm(threeDimDat.type,Int64(current),actor.actor.onScrollData.dimensionToScroll,threeDimDat ),scrDat) |>
+  (twoDimList)-> SingleSliceDat(listOfDataAndImageNames=twoDimList
+                              ,sliceNumber=current
+                              ,textToDisp = getTextForCurrentSlice(actor.actor.onScrollData, Int32(current))  )
+
+  updateImagesDisplayed(singleSlDat
+                      ,actor.actor.mainForDisplayObjects
+                      ,actor.actor.textDispObj
+                      ,actor.actor.calcDimsStruct 
+                      ,actor.actor.valueForMasToSet      )
+
+end#refresh
   
   
 
