@@ -38,7 +38,7 @@ using ..distinctColorsSaved
 
 using  MedEye3d.OpenGLDisplayUtils,  MedEye3d.ForDisplayStructs
 using   MedEye3d.Uniforms,   MedEye3d.CustomFragShad,  MedEye3d.DataStructs,  MedEye3d.DisplayWords
-using   MedEye3d.OpenGLDisplayUtils,  MedEye3d.ForDisplayStructs
+using   MedEye3d.OpenGLDisplayUtils,  MedEye3d.ForDisplayStructs,MedEye3d.TextureManag
 using MedEval3D
 using MedEval3D.BasicStructs
 using MedEval3D.MainAbstractions
