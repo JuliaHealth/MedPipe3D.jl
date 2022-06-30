@@ -31,7 +31,7 @@ import MedEye3d.ForDisplayStructs.ActorWithOpenGlObjects
 import MedEye3d.OpenGLDisplayUtils
 import MedEye3d.DisplayWords.textLinesFromStrings
 import MedEye3d.StructsManag.getThreeDims
-import DisplayWords
+using DisplayWords
 using ..distinctColorsSaved
 
 using MedEval3D
@@ -350,7 +350,7 @@ function refresh(actor)
   (scrDat)-> map(threeDimDat->threeToTwoDimm(threeDimDat.type,Int64(current),actor.actor.onScrollData.dimensionToScroll,threeDimDat ),scrDat) |>
   (twoDimList)-> SingleSliceDat(listOfDataAndImageNames=twoDimList
                               ,sliceNumber=current
-                              ,textToDisp = DisplayWords.getTextForCurrentSlice(actor.actor.onScrollData, Int32(current))  )
+                              ,textToDisp = getTextForCurrentSlice(actor.actor.onScrollData, Int32(current))  )
 
   updateImagesDisplayed(singleSlDat
                       ,actor.actor.mainForDisplayObjects
