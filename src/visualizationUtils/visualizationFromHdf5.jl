@@ -350,7 +350,7 @@ function refresh(actor)
   (scrDat)-> map(threeDimDat->threeToTwoDimm(threeDimDat.type,Int64(current),actor.actor.onScrollData.dimensionToScroll,threeDimDat ),scrDat) |>
   (twoDimList)-> SingleSliceDat(listOfDataAndImageNames=twoDimList
                               ,sliceNumber=current
-                              ,textToDisp = getTextForCurrentSlice(actor.actor.onScrollData, Int32(current))  )
+                              ,textToDisp = DisplayWords.getTextForCurrentSlice(actor.actor.onScrollData, Int32(current))  )
 
   updateImagesDisplayed(singleSlDat
                       ,actor.actor.mainForDisplayObjects
