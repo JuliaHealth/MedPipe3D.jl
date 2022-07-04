@@ -30,6 +30,7 @@ function loadByMonaiFromImageAndLabelPaths(
     imagePath
     ,labelPath
     ,trAnsforms=[])
+    monai=pyimport("monai")
     #default transforms
     if(length(trAnsforms)==0)
         trAnsforms= [
