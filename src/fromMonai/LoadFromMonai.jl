@@ -2,6 +2,7 @@ module LoadFromMonai
 
 using PythonCall
 
+monai=pyimport("monai")
 
 function permuteAndReverseFromMonai(pixels)
     sizz=size(pixels)
@@ -27,7 +28,6 @@ function loadByMonaiFromImageAndLabelPaths(
     imagePath
     ,labelPath
     ,trAnsforms=[])
-    monai=pyimport("monai")
     #default transforms
     if(length(trAnsforms)==0)
         trAnsforms= [
