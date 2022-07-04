@@ -2,7 +2,9 @@ module LoadFromMonai
 
 using PythonCall
 
-monai=pyimport("monai")
+function getMonaiObject()
+    return pyimport("monai")
+end    
 
 function permuteAndReverseFromMonai(pixels)
     sizz=size(pixels)
