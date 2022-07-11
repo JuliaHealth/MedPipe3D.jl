@@ -1,5 +1,5 @@
-# using Revise
-include("D:\\projects\\vsCode\\MedPipe\\MedPipe\\src\\includeAll.jl")
+ using Revise
+#include("D:\\projects\\vsCode\\MedPipe\\MedPipe\\src\\includeAll.jl")
 
 # using Main.LoadFromMonai, Main.HDF5saveUtils,Main.visualizationFromHdf5, Main.distinctColorsSaved
 # using PythonCall
