@@ -46,7 +46,7 @@ function loadByMonaiFromImageAndLabelPaths(
 
     dicttt= pydict(Dict([("image", imagePath),( "label",  labelPath )]))
 
-    loadObj=monai.transforms.LoadImaged(keys=["image", "label"])(dicttt)
+    loadObj=monai.transforms.LoadImaged(keys=["image", "label"],reader= "ITKReader")(dicttt)
     metaData= pyconvert(Dict,pyconvert(Dict,loadObj)["image_meta_dict"])
 
     loadObj = trAnsformsComposed(loadObj)
