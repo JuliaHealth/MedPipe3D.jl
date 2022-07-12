@@ -5,6 +5,7 @@ channels = ["anaconda", "conda-forge"]
 python = ">=3.5,<4"
 nibabel = ""
 simpleitk = ""
+itk=""
 #monai=""
-'monai[pydicom]' = ""
+monai = ""
 
