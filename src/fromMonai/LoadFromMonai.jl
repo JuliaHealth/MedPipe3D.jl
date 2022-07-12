@@ -6,6 +6,11 @@ function getMonaiObject()
     return pyimport("monai")
 end    
 
+
+function getSimpleItkObject()
+    return pyimport("sitk")
+end  
+
 function permuteAndReverseFromMonai(pixels)
     sizz=size(pixels)
     for i in 1:sizz[2]
