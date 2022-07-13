@@ -68,7 +68,7 @@ end
 resample to given size using sitk
 """
 
-function resamplesitkImageTosize(image,targetSpac)
+function resamplesitkImageTosize(image,targetSpac,sitk)
     
     orig_spacing=pyconvert(Array,image.GetSpacing())
     origSize =pyconvert(Array,image.GetSize())
