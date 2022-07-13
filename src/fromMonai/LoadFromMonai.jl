@@ -73,9 +73,9 @@ function resamplesitkImageTosize(image,targetSpac)
     orig_spacing=image.GetSpacing()
     origSize =image.GetSize()
 
-    new_size = (round(origSize[0]*(orig_spacing[0]/targetSpac[0])),
-    round(origSize[1]*(orig_spacing[1]/targetSpac[1])),
-    round(origSize[2]*(orig_spacing[2]/targetSpac[2]) )    )
+    new_size = (round(origSize[1]*(orig_spacing[1]/targetSpac[1])),
+    round(origSize[2]*(orig_spacing[2]/targetSpac[2])),
+    round(origSize[3]*(orig_spacing[3]/targetSpac[3]) )    )
 
     resample = sitk.ResampleImageFilter()
     resample.SetOutputSpacing(targetSpac)
