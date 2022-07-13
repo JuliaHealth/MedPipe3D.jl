@@ -92,7 +92,7 @@ labelPath - path to label
 function loadBySitkromImageAndLabelPaths(
     imagePath
     ,labelPath
-    ,targetSpacing)
+    ,targetSpacing=(1,1,1))
 
     sitk=getSimpleItkObject()
     
@@ -110,7 +110,7 @@ function loadBySitkromImageAndLabelPaths(
 
     imageSize=image.GetSize()
     labelSize= label.GetSize()
-    
+
 
 return (imageArr,labelArr,metaData,imageSize,labelSize)
     
