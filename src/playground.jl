@@ -1,6 +1,18 @@
- using PythonCall
+using PythonCall
+using CondaPkg
+CondaPkg.add("simpleitk")
+CondaPkg.add("itk")
 
- pyimport("simpleitk")
+CondaPkg.add_pip("simpleitk", version="")
+
+pyimport("simpleitk")
+pyimport("seaborn")
+
+pyimport("simpleitk")
+
+1+1
+
+
 #include("D:\\projects\\vsCode\\MedPipe\\MedPipe\\src\\includeAll.jl")
 
 # using Main.LoadFromMonai, Main.HDF5saveUtils,Main.visualizationFromHdf5, Main.distinctColorsSaved

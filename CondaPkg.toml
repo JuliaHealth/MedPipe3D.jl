@@ -1,12 +1,11 @@
 channels = ["anaconda", "conda-forge"]
 
 [deps]
-# Conda package names and versions
-python = "=3.10,<4"
-nibabel = ""
+itk = ""
+seaborn = ""
 simpleitk = ""
-#gcc="12.1.0"
-#itk=""
-#monai=""
+python = ">=3.5,<4"
 monai = ""
 
+[pip.deps]
+simpleitk = ""
