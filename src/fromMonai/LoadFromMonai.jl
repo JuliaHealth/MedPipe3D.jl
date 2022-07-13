@@ -73,9 +73,9 @@ function resamplesitkImageTosize(image,targetSpac,sitk)
     orig_spacing=pyconvert(Array,image.GetSpacing())
     origSize =pyconvert(Array,image.GetSize())
 
-    new_size = (round(origSize[1]*(orig_spacing[1]/targetSpac[1])),
-    round(origSize[2]*(orig_spacing[2]/targetSpac[2])),
-    round(origSize[3]*(orig_spacing[3]/targetSpac[3]) )    )
+    new_size = (Int(round(origSize[1]*(orig_spacing[1]/targetSpac[1]))),
+    Int(round(origSize[2]*(orig_spacing[2]/targetSpac[2]))),
+    Int(round(origSize[3]*(orig_spacing[3]/targetSpac[3]) ))    )
 
     resample = sitk.ResampleImageFilter()
     resample.SetOutputSpacing(targetSpac)
