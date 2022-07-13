@@ -70,8 +70,8 @@ resample to given size using sitk
 
 function resamplesitkImageTosize(image,targetSpac)
     
-    orig_spacing=pyconvert(Tuple{Int,Int,Int},image.GetSpacing())
-    origSize =pyconvert(Tuple{Int,Int,Int},image.GetSize())
+    orig_spacing=pyconvert(Array,image.GetSpacing())
+    origSize =pyconvert(Array,image.GetSize())
 
     new_size = (round(origSize[1]*(orig_spacing[1]/targetSpac[1])),
     round(origSize[2]*(orig_spacing[2]/targetSpac[2])),
