@@ -105,8 +105,8 @@ function loadBySitkromImageAndLabelPaths(
     image=resamplesitkImageTosize(image,targetSpacing)
     label=resamplesitkImageTosize(label,targetSpacing)
 
-    imageArr=sitk.GetArrayFromImage(image)
-    labelArr=sitk.GetArrayFromImage(label)
+    imageArr=permuteAndReverseFromMonai(pyconvert(Array,sitk.GetArrayFromImage(image)))
+    labelArr=permuteAndReverseFromMonai(pyconvert(Array,sitk.GetArrayFromImage(label)))
 
     imageSize=image.GetSize()
     labelSize= label.GetSize()
