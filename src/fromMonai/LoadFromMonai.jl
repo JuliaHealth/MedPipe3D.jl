@@ -92,12 +92,13 @@ end
 
 
 function permuteAndReverseFromSitk(pixels)
-    # sizz=size(pixels)
-    # for i in 1:sizz[2]
-    #     for j in 1:sizz[3]
-    #         pixels[:,i,j] =  reverse(pixels[:,i,j])
-    #     end# 
-    # end# 
+    pixels=  permutedims(pixels, (3,2,1))
+    sizz=size(pixels)
+    for i in 1:sizz[1]
+        for j in 1:sizz[3]
+            pixels[i,:,j] =  reverse(pixels[i,:,j])
+        end# 
+    end# 
     return pixels
   end#permuteAndReverse
 
