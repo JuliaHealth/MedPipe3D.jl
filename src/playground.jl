@@ -1,3 +1,6 @@
+using Pkg
+Pkg.instantiate()
+
 using PythonCall
 using CondaPkg
 CondaPkg.add("simpleitk")
@@ -5,7 +8,8 @@ CondaPkg.add("itk")
 
 CondaPkg.add_pip("simpleitk", version="")
 
-pyimport("simpleitk")
+pyimport("itk")
+
 pyimport("seaborn")
 
 pyimport("simpleitk")
