@@ -68,7 +68,7 @@ end
 resample to given size using sitk
 """
 
-function resamplesitkImageTosize(image,targetSpac)
+function resamplesitkImageTosize(image,targetSpac,sitk)
     resample = sitk.ResampleImageFilter()
     resample.SetOutputSpacing(targetSpac)
     resample.SetOutputDirection(image.GetDirection())
@@ -102,8 +102,8 @@ function loadBySitkromImageAndLabelPaths(
     image=sitk.DICOMOrient(image, "RAS")
     label=sitk.DICOMOrient(label, "RAS")
 
-    image=resamplesitkImageTosize(image,targetSpacing)
-    label=resamplesitkImageTosize(label,targetSpacing)
+    image=resamplesitkImageTosize(image,targetSpacing,sitk)
+    label=resamplesitkImageTosize(label,targetSpacing,sitk)
 
     imageArr=permuteAndReverseFromMonai(pyconvert(Array,sitk.GetArrayFromImage(image)))
     labelArr=permuteAndReverseFromMonai(pyconvert(Array,sitk.GetArrayFromImage(label)))
