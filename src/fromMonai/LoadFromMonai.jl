@@ -8,7 +8,7 @@ end
 
 
 function getSimpleItkObject()
-    return pyimport("sitk")
+    return pyimport("simpleitk")
 end  
 
 function permuteAndReverseFromMonai(pixels)
