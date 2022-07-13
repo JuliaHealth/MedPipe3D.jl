@@ -91,6 +91,17 @@ end
 
 
 
+function permuteAndReverseFromSitk(pixels)
+    # sizz=size(pixels)
+    # for i in 1:sizz[2]
+    #     for j in 1:sizz[3]
+    #         pixels[:,i,j] =  reverse(pixels[:,i,j])
+    #     end# 
+    # end# 
+    return pixels
+  end#permuteAndReverse
+
+
 """
 given file paths it loads 
 imagePath - path to main image
@@ -113,8 +124,8 @@ function loadBySitkromImageAndLabelPaths(
     image=resamplesitkImageTosize(image,targetSpacing,sitk)
     label=resamplesitkImageTosize(label,targetSpacing,sitk)
 
-    imageArr=permuteAndReverseFromMonai(pyconvert(Array,sitk.GetArrayFromImage(image)))
-    labelArr=permuteAndReverseFromMonai(pyconvert(Array,sitk.GetArrayFromImage(label)))
+    imageArr=permuteAndReverseFromSitk(pyconvert(Array,sitk.GetArrayFromImage(image)))
+    labelArr=permuteAndReverseFromSitk(pyconvert(Array,sitk.GetArrayFromImage(label)))
 
     imageSize=image.GetSize()
     labelSize= label.GetSize()
