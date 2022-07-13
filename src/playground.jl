@@ -12,7 +12,7 @@ pyimport("itk")
 
 pyimport("seaborn")
 
-pyimport("simpleitk")
+pyimport("SimpleITK")
 
 1+1
 

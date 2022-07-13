@@ -3,9 +3,6 @@ channels = ["anaconda", "conda-forge"]
 [deps]
 itk = ""
 seaborn = ""
-simpleitk = ""
+SimpleITK = ""
 python = ">=3.5,<4"
 monai = ""
-
-[pip.deps]
-simpleitk = ""
