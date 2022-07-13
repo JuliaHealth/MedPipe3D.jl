@@ -62,4 +62,58 @@ return (image,label,metaData)
     
 end
 
+
+
+"""
+resample to given size using sitk
+"""
+
+function resamplesitkImageTosize(image,targetSpac)
+    resample = sitk.ResampleImageFilter()
+    resample.SetOutputSpacing(targetSpac)
+    resample.SetOutputDirection(image.GetDirection())
+    resample.SetOutputOrigin(image.GetOrigin())
+    resample.SetTransform(sitk.Transform())
+    resample.SetDefaultPixelValue(image.GetPixelIDValue())
+    resample.SetInterpolator(sitk.sitkBSpline)
+    resample.SetSize(new_size)
+    return resample.Execute(image)
+
+end
+
+
+
+"""
+given file paths it loads 
+imagePath - path to main image
+labelPath - path to label
+
+"""
+function loadBySitkromImageAndLabelPaths(
+    imagePath
+    ,labelPath
+    ,targetSpacing)
+
+    sitk=getSimpleItkObject()
+    
+    image=sitk.ReadImage(imagePath)
+    label=sitk.ReadImage(labelPath)
+
+    image=sitk.DICOMOrient(image, "RAS")
+    label=sitk.DICOMOrient(label, "RAS")
+
+    image=resamplesitkImageTosize(image,targetSpacing)
+    label=resamplesitkImageTosize(label,targetSpacing)
+
+    imageArr=sitk.GetArrayFromImage(image)
+    labelArr=sitk.GetArrayFromImage(label)
+
+    imageSize=image.GetSize()
+    labelSize= label.GetSize()
+
+return (imageArr,labelArr,metaData,imageSize,labelSize)
+    
+end
+
+
 end
