@@ -110,6 +110,7 @@ function loadBySitkromImageAndLabelPaths(
 
     imageSize=image.GetSize()
     labelSize= label.GetSize()
+    
 
 return (imageArr,labelArr,metaData,imageSize,labelSize)
     
