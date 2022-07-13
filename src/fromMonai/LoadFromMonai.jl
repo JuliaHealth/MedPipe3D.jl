@@ -110,8 +110,8 @@ function loadBySitkromImageAndLabelPaths(
     image=sitk.DICOMOrient(image, "RAS")
     label=sitk.DICOMOrient(label, "RAS")
 
-    image=resamplesitkImageTosize(image,targetSpacing)
-    label=resamplesitkImageTosize(label,targetSpacing)
+    image=resamplesitkImageTosize(image,targetSpacing,sitk)
+    label=resamplesitkImageTosize(label,targetSpacing,sitk)
 
     imageArr=permuteAndReverseFromMonai(pyconvert(Array,sitk.GetArrayFromImage(image)))
     labelArr=permuteAndReverseFromMonai(pyconvert(Array,sitk.GetArrayFromImage(label)))
