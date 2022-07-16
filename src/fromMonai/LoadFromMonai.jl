@@ -123,7 +123,7 @@ function loadBySitkromImageAndLabelPaths(
     label=sitk.DICOMOrient(label, "RAS")
 
     #image=resamplesitkImageTosize(image,targetSpacing,sitk)
-    label=resamplesitkImageTosize(label,targetSpacing,sitk)
+    #label=resamplesitkImageTosize(label,targetSpacing,sitk)
 
     imageArr=permuteAndReverseFromSitk(pyconvert(Array,sitk.GetArrayFromImage(image)))
     labelArr=permuteAndReverseFromSitk(pyconvert(Array,sitk.GetArrayFromImage(label)))
