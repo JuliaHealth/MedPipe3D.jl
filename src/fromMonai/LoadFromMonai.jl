@@ -107,7 +107,7 @@ function permuteAndReverseFromSitk(pixels)
 given file paths it loads 
 imagePath - path to main image
 labelPath - path to label
-
+also it make the spacing equal to target spacing and the orientation as RAS
 """
 function loadBySitkromImageAndLabelPaths(
     imagePath
@@ -124,6 +124,62 @@ function loadBySitkromImageAndLabelPaths(
 
     image=resamplesitkImageTosize(image,targetSpacing,sitk)
     label=resamplesitkImageTosize(label,targetSpacing,sitk)
+
+    imageArr=permuteAndReverseFromSitk(pyconvert(Array,sitk.GetArrayFromImage(image)))
+    labelArr=permuteAndReverseFromSitk(pyconvert(Array,sitk.GetArrayFromImage(label)))
+
+    imageSize=image.GetSize()
+    labelSize= label.GetSize()
+
+
+return (imageArr,labelArr,imageSize,imageSize,labelSize)
+    
+end
+
+"""
+padd with given value symmetrically to get the predifined target size and return padded image
+"""
+function padToSize(image1,targetSize, paddValue,sitk)
+    currentSize =pyconvert(Array,image1.GetSize())
+    sizediffs=(targetSize[0]-currentSize[1]  , targetSize[1]-currentSize[1]  ,targetSize[2]-currentSize[2])
+    halfDiffSize=(math.floor(sizediffs[0]/2) , math.floor(sizediffs[1]/2), math.floor(sizediffs[2]/2))
+    rest=(sizediffs[0]-halfDiffSize[0]  ,sizediffs[1]-halfDiffSize[1]  ,sizediffs[2]-halfDiffSize[2]  )
+    #print(f" currentSize {currentSize} targetSize {targetSize} halfDiffSize {halfDiffSize}  rest {rest} paddValue {paddValue} sizediffs {type(sizediffs)}")
+    
+    halfDiffSize=zeros(Int,halfDiffSize)
+    rest=zeros(Int,rest)
+
+    return sitk.ConstantPad(image1, halfDiffSize, rest, paddValue)
+    #return sitk.ConstantPad(image1, (1,1,1), (1,1,1), paddValue)
+end #padToSize
+
+
+"""
+given file paths it loads 
+imagePath - path to main image
+labelPath - path to label
+also it make the spacing equal to target spacing and the orientation as RAS
+in the end pad to target size
+"""
+function loadandPad(
+    imagePath
+    ,labelPath
+    ,targetSpacing=(1,1,1)
+    ,targetSize)
+
+    sitk=getSimpleItkObject()
+    
+    image=sitk.ReadImage(imagePath)
+    label=sitk.ReadImage(labelPath)
+
+    image=sitk.DICOMOrient(image, "RAS")
+    label=sitk.DICOMOrient(label, "RAS")
+
+    image=resamplesitkImageTosize(image,targetSpacing,sitk)
+    label=resamplesitkImageTosize(label,targetSpacing,sitk)
+    
+    padToSize(image,targetSize, 0,sitk)
+    padToSize(label,targetSize, 0,sitk)
 
     imageArr=permuteAndReverseFromSitk(pyconvert(Array,sitk.GetArrayFromImage(image)))
     labelArr=permuteAndReverseFromSitk(pyconvert(Array,sitk.GetArrayFromImage(label)))
