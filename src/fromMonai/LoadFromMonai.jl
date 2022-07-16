@@ -146,8 +146,8 @@ function padToSize(image1,targetSize, paddValue,sitk)
     rest=(sizediffs[1]-halfDiffSize[1]  ,sizediffs[2]-halfDiffSize[2]  ,sizediffs[3]-halfDiffSize[3]  )
     #print(f" currentSize {currentSize} targetSize {targetSize} halfDiffSize {halfDiffSize}  rest {rest} paddValue {paddValue} sizediffs {type(sizediffs)}")
     
-    halfDiffSize=zeros(Int,halfDiffSize)
-    rest=zeros(Int,rest)
+    # halfDiffSize=()
+    # rest=zeros(Int,rest)
 
     return sitk.ConstantPad(image1, halfDiffSize, rest, paddValue)
     #return sitk.ConstantPad(image1, (1,1,1), (1,1,1), paddValue)
