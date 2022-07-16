@@ -164,7 +164,7 @@ in the end pad to target size
 function loadandPad(
     imagePath
     ,labelPath
-    ,targetSpacing=(1,1,1)
+    ,targetSpacing
     ,targetSize)
 
     sitk=getSimpleItkObject()
