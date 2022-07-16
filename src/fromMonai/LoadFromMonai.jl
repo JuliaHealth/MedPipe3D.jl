@@ -141,9 +141,9 @@ padd with given value symmetrically to get the predifined target size and return
 """
 function padToSize(image1,targetSize, paddValue,sitk)
     currentSize =pyconvert(Array,image1.GetSize())
-    sizediffs=(targetSize[0]-currentSize[1]  , targetSize[1]-currentSize[1]  ,targetSize[2]-currentSize[2])
-    halfDiffSize=(math.floor(sizediffs[0]/2) , math.floor(sizediffs[1]/2), math.floor(sizediffs[2]/2))
-    rest=(sizediffs[0]-halfDiffSize[0]  ,sizediffs[1]-halfDiffSize[1]  ,sizediffs[2]-halfDiffSize[2]  )
+    sizediffs=(targetSize[1]-currentSize[1]  , targetSize[2]-currentSize[2]  ,targetSize[3]-currentSize[3])
+    halfDiffSize=(Int(floor(sizediffs[1]/2)) , Int(floor(sizediffs[2]/2)), Int(floor(sizediffs[3]/2)))
+    rest=(sizediffs[1]-halfDiffSize[1]  ,sizediffs[2]-halfDiffSize[2]  ,sizediffs[3]-halfDiffSize[3]  )
     #print(f" currentSize {currentSize} targetSize {targetSize} halfDiffSize {halfDiffSize}  rest {rest} paddValue {paddValue} sizediffs {type(sizediffs)}")
     
     halfDiffSize=zeros(Int,halfDiffSize)
