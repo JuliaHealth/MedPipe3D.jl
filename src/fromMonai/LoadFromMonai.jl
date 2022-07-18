@@ -215,7 +215,7 @@ function loadandPadSingle(
 
     image=resamplesitkImageTosize(image,targetSpacing,sitk)
     imageSize= pyconvert(Array,image.GetSize())
-    targetSize=Array(targetSize)
+    targetSize=[i for i in targetSize]
     # in case some size is set to -1 it marks just that it should not be changed
     for i in 1:3
         if(targetSize[i]<0)
