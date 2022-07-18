@@ -68,7 +68,7 @@ end
 resample to given size using sitk
 """
 
-function resamplesitkImageTosize(image,targetSpac,sitk)
+function resamplesitkImageTosize(image,targetSpac,sitk,interpolator)
     
     orig_spacing=pyconvert(Array,image.GetSpacing())
     origSize =pyconvert(Array,image.GetSize())
@@ -83,7 +83,7 @@ function resamplesitkImageTosize(image,targetSpac,sitk)
     resample.SetOutputOrigin(image.GetOrigin())
     resample.SetTransform(sitk.Transform())
     resample.SetDefaultPixelValue(image.GetPixelIDValue())
-    resample.SetInterpolator(sitk.sitkBSpline)
+    resample.SetInterpolator(interpolator)
     resample.SetSize(new_size)
     return resample.Execute(image)
 
@@ -122,8 +122,8 @@ function loadBySitkromImageAndLabelPaths(
     image=sitk.DICOMOrient(image, "RAS")
     label=sitk.DICOMOrient(label, "RAS")
 
-    image=resamplesitkImageTosize(image,targetSpacing,sitk)
-    label=resamplesitkImageTosize(label,targetSpacing,sitk)
+    image=resamplesitkImageTosize(image,targetSpacing,sitk,sitk.sitkBSpline)
+    label=resamplesitkImageTosize(label,targetSpacing,sitk,sitk.sitkNearestNeighbor)
 
     imageArr=permuteAndReverseFromSitk(pyconvert(Array,sitk.GetArrayFromImage(image)))
     labelArr=permuteAndReverseFromSitk(pyconvert(Array,sitk.GetArrayFromImage(label)))
@@ -175,8 +175,8 @@ function loadandPad(
     image=sitk.DICOMOrient(image, "RAS")
     label=sitk.DICOMOrient(label, "RAS")
 
-    image=resamplesitkImageTosize(image,targetSpacing,sitk)
-    label=resamplesitkImageTosize(label,targetSpacing,sitk)
+    image=resamplesitkImageTosize(image,targetSpacing,sitk,sitk.sitkBSpline)
+    label=resamplesitkImageTosize(label,targetSpacing,sitk,sitk.sitkNearestNeighbor)
     
     image=padToSize(image,targetSize, 0,sitk)
     label=padToSize(label,targetSize, 0,sitk)
@@ -205,15 +205,20 @@ if any target size entry is -1 one will keep the original size in this dimension
 function loadandPadSingle(
     imagePath
     ,targetSpacing
-    ,targetSize)
+    ,targetSize
+    ,isLabel)
 
     sitk=getSimpleItkObject()
     
     image=sitk.ReadImage(imagePath)
 
     image=sitk.DICOMOrient(image, "RAS")
+    interpolator=sitk.sitkBSpline
+    if(isLabel)
+        interpolator=sitk.sitkNearestNeighbor
+    end
 
-    image=resamplesitkImageTosize(image,targetSpacing,sitk)
+    image=resamplesitkImageTosize(image,targetSpacing,sitk,interpolator)
     imageSize= pyconvert(Array,image.GetSize())
     targetSize=[i for i in targetSize]
     # in case some size is set to -1 it marks just that it should not be changed
