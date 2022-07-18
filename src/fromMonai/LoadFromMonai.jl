@@ -184,13 +184,55 @@ function loadandPad(
     imageArr=permuteAndReverseFromSitk(pyconvert(Array,sitk.GetArrayFromImage(image)))
     labelArr=permuteAndReverseFromSitk(pyconvert(Array,sitk.GetArrayFromImage(label)))
 
-    imageSize=image.GetSize()
-    labelSize= label.GetSize()
+    imageSize= pyconvert(Array,image.GetSize())
+    labelSize= pyconvert(Array,label.GetSize())
 
 
-return (imageArr,labelArr,imageSize,imageSize,labelSize)
+return (imageArr,labelArr,imageSize,labelSize)
     
 end
+
+
+
+
+"""
+given file path it loads 
+imagePath - path to main image
+also it make the spacing equal to target spacing and the orientation as RAS
+in the end pad to target size
+if any target size entry is -1 one will keep the original size in this dimension
+"""
+function loadandPadSingle(
+    imagePath
+    ,targetSpacing
+    ,targetSize)
+
+    sitk=getSimpleItkObject()
+    
+    image=sitk.ReadImage(imagePath)
+
+    image=sitk.DICOMOrient(image, "RAS")
+
+    image=resamplesitkImageTosize(image,targetSpacing,sitk)
+    imageSize= pyconvert(Array,image.GetSize())
+    # in case some size is set to -1 it marks just that it should not be changed
+    for i in 1:3
+        if(targetSize[i]<0)
+            targetSize[i]=imageSize[i]
+        end    
+    end#for
+    image=padToSize(image,targetSize, 0,sitk)
+
+    imageArr=permuteAndReverseFromSitk(pyconvert(Array,sitk.GetArrayFromImage(image)))
+
+    imageSize= pyconvert(Array,image.GetSize())
+
+
+return (imageArr,imageSize)
+    
+end
+
+
 
 
 end
