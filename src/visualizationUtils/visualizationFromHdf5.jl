@@ -265,13 +265,28 @@ function getDefaultTextureSpec(dataTypeStr::String,maskName::String ,index::Int,
      )
    
   elseif(dataTypeStr=="multiDiscreteLabel") 
-  
+    return TextureSpec{typp}(
+      name = maskName,
+      isContinuusMask=true,
+      colorSet = [getSomeColor(listOfColorUsed),getSomeColor(listOfColorUsed)]
+      ,minAndMaxValue= typp.([min,max])
+     )
  
   elseif(dataTypeStr=="contLabel") 
-
+    return TextureSpec{typp}(
+      name = maskName,
+      isContinuusMask=true,
+      colorSet = [getSomeColor(listOfColorUsed),getSomeColor(listOfColorUsed)]
+      ,minAndMaxValue= typp.([min,max])
+     )
 
   elseif(dataTypeStr=="PET") 
-    
+    return TextureSpec{typp}(
+      name = maskName,
+      isContinuusMask=true,
+      colorSet = [getSomeColor(listOfColorUsed),getSomeColor(listOfColorUsed)]
+      ,minAndMaxValue= typp.([min,max])
+     )  
 
 
   end
