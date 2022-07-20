@@ -182,7 +182,7 @@ end#for
 #initializing texture
     textureSpec =  if(maskName in addTextureNames )
       textureSpec = filter(tex->tex.name==maskName,addTextSpecs  )[1]
-    else getDefaultTextureSpec(dataTypeStr,maskName ,index,listOfColorUsed, typp, min, max)
+    else getDefaultTextureSpec(dataTypeStr,maskName ,index,listOfColorUsed, typp, min, max,voxels)
   end  
   textureSpec.numb= index
     imageSize= size(voxels)
@@ -249,7 +249,7 @@ return mainScrollDat
  given datatype string will return appropriate default configuration for image display
  """
 function getDefaultTextureSpec(dataTypeStr::String,maskName::String ,index::Int,listOfColorUsed
-      , typp, min, max)::TextureSpec
+      , typp, min, max,voxels)::TextureSpec
 
   if(dataTypeStr=="CT")
     return TextureSpec{typp}(
@@ -265,10 +265,12 @@ function getDefaultTextureSpec(dataTypeStr::String,maskName::String ,index::Int,
      )
    
   elseif(dataTypeStr=="multiDiscreteLabel") 
+    numberUniq=unique(voxels)
+    colorSet=map(i->getSomeColor(listOfColorUsed),1: numberUniq )
     return TextureSpec{typp}(
       name = maskName,
       isContinuusMask=true,
-      colorSet = [getSomeColor(listOfColorUsed),getSomeColor(listOfColorUsed)]
+      colorSet = colorSet
       ,minAndMaxValue= typp.([min,max])
      )
  

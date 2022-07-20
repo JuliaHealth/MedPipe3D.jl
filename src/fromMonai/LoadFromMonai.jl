@@ -198,7 +198,6 @@ end
 
 
 
-
 """
 given file path it loads 
 imagePath - path to main image
