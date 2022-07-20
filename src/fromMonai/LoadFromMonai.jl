@@ -11,6 +11,10 @@ function getSimpleItkObject()
     return pyimport("SimpleITK")
 end  
 
+function pyconvert(typeA,obj)
+    return pyconvert(typeA,obj)
+end    
+
 function permuteAndReverseFromMonai(pixels)
     sizz=size(pixels)
     for i in 1:sizz[2]
