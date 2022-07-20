@@ -11,7 +11,7 @@ function getSimpleItkObject()
     return pyimport("SimpleITK")
 end  
 
-function pyconvert(typeA,obj)
+function myPyconvert(typeA,obj)
     return pyconvert(typeA,obj)
 end    
 
