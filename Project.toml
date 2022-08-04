@@ -11,9 +11,9 @@ MedEye3d = "48a1af7b-3279-4eeb-8f2b-7ca229bb51b1"
 PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
 
 [compat]
-ColorTypes = "0.11.0"
+ColorTypes = "0.11.0,0.10.12"
 HDF5 = "0.16.5"
 MedEval3D = "0.1.0"
-MedEye3d = "0.5.3"
+MedEye3d = "0.5.4"
 PythonCall = "0.8.0"
 julia = "1.6"
