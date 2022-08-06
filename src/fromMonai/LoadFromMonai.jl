@@ -1,6 +1,7 @@
 module LoadFromMonai
 
 using PythonCall
+using MedEye3dvisualizationFromHdf5
 
 function getMonaiObject()
     return pyimport("monai")

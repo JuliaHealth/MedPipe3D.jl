@@ -1,0 +1,330 @@
+This is pdfTeX, Version 3.14159265-2.6-1.40.20 (TeX Live 2019/Debian) (preloaded format=pdflatex 2022.8.5)  6 AUG 2022 16:22
+entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
+**paper.tex
+(./paper.tex
+LaTeX2e <2020-02-02> patch level 2
+L3 programming layer <2020-02-14> (./elsarticle.cls
+Document Class: elsarticle 2020/11/20, 3.3: Elsevier Ltd
+(/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3.sty
+Package: expl3 2020-02-14 L3 programming layer (loader) 
+
+(/usr/share/texlive/texmf-dist/tex/latex/l3backend/l3backend-pdfmode.def
+File: l3backend-pdfmode.def 2020-02-03 L3 backend support: PDF mode
+\l__kernel_color_stack_int=\count167
+\l__pdf_internal_box=\box45
+))
+(/usr/share/texlive/texmf-dist/tex/latex/l3packages/xparse/xparse.sty
+Package: xparse 2020-02-14 L3 Experimental document command parser
+\l__xparse_current_arg_int=\count168
+\g__xparse_grabber_int=\count169
+\l__xparse_m_args_int=\count170
+\l__xparse_v_nesting_int=\count171
+)
+(/usr/share/texlive/texmf-dist/tex/latex/etoolbox/etoolbox.sty
+Package: etoolbox 2019/09/21 v2.5h e-TeX tools for LaTeX (JAW)
+\etb@tempcnta=\count172
+)
+\@bls=\dimen134
+
+(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2019/12/20 v1.4l Standard LaTeX document class
+(/usr/share/texlive/texmf-dist/tex/latex/base/size12.clo
+File: size12.clo 2019/12/20 v1.4l Standard LaTeX file (size option)
+)
+\c@part=\count173
+\c@section=\count174
+\c@subsection=\count175
+\c@subsubsection=\count176
+\c@paragraph=\count177
+\c@subparagraph=\count178
+\c@figure=\count179
+\c@table=\count180
+\abovecaptionskip=\skip47
+\belowcaptionskip=\skip48
+\bibindent=\dimen135
+)
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphicx.sty
+Package: graphicx 2019/11/30 v1.2a Enhanced LaTeX Graphics (DPC,SPQR)
+
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/keyval.sty
+Package: keyval 2014/10/28 v1.15 key=value parser (DPC)
+\KV@toks@=\toks14
+)
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphics.sty
+Package: graphics 2019/11/30 v1.4a Standard LaTeX Graphics (DPC,SPQR)
+
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/trig.sty
+Package: trig 2016/01/03 v1.10 sin cos tan (DPC)
+)
+(/usr/share/texlive/texmf-dist/tex/latex/graphics-cfg/graphics.cfg
+File: graphics.cfg 2016/06/04 v1.11 sample graphics configuration
+)
+Package graphics Info: Driver file: pdftex.def on input line 105.
+
+(/usr/share/texlive/texmf-dist/tex/latex/graphics-def/pdftex.def
+File: pdftex.def 2018/01/08 v1.0l Graphics/color driver for pdftex
+))
+\Gin@req@height=\dimen136
+\Gin@req@width=\dimen137
+)
+\c@tnote=\count181
+\c@fnote=\count182
+\c@cnote=\count183
+\c@ead=\count184
+\c@author=\count185
+\@eadauthor=\toks15
+\c@affn=\count186
+\absbox=\box46
+\elsarticlehighlightsbox=\box47
+\elsarticlegrabsbox=\box48
+\keybox=\box49
+\Columnwidth=\dimen138
+\space@left=\dimen139
+\els@boxa=\box50
+\els@boxb=\box51
+\leftMargin=\dimen140
+\@enLab=\toks16
+\@sep=\skip49
+\@@sep=\skip50
+
+(./paper.spl) (/usr/share/texlive/texmf-dist/tex/latex/natbib/natbib.sty
+Package: natbib 2010/09/13 8.31b (PWD, AO)
+\bibhang=\skip51
+\bibsep=\skip52
+LaTeX Info: Redefining \cite on input line 694.
+\c@NAT@ctr=\count187
+)
+\splwrite=\write3
+\openout3 = `paper.spl'.
+
+\appnamewidth=\dimen141
+)
+(/usr/share/texlive/texmf-dist/tex/latex/amsfonts/amssymb.sty
+Package: amssymb 2013/01/14 v3.01 AMS font symbols
+
+(/usr/share/texlive/texmf-dist/tex/latex/amsfonts/amsfonts.sty
+Package: amsfonts 2013/01/14 v3.01 Basic AMSFonts support
+\@emptytoks=\toks17
+\symAMSa=\mathgroup4
+\symAMSb=\mathgroup5
+LaTeX Font Info:    Redeclaring math symbol \hbar on input line 98.
+LaTeX Font Info:    Overwriting math alphabet `\mathfrak' in version `bold'
+(Font)                  U/euf/m/n --> U/euf/b/n on input line 106.
+)) (./paper.aux)
+\openout1 = `paper.aux'.
+
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 57.
+LaTeX Font Info:    ... okay on input line 57.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 57.
+LaTeX Font Info:    ... okay on input line 57.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 57.
+LaTeX Font Info:    ... okay on input line 57.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 57.
+LaTeX Font Info:    ... okay on input line 57.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 57.
+LaTeX Font Info:    ... okay on input line 57.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 57.
+LaTeX Font Info:    ... okay on input line 57.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 57.
+LaTeX Font Info:    ... okay on input line 57.
+
+(/usr/share/texlive/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
+[Loading MPS to PDF converter (version 2006.09.02).]
+\scratchcounter=\count188
+\scratchdimen=\dimen142
+\scratchbox=\box52
+\nofMPsegments=\count189
+\nofMParguments=\count190
+\everyMPshowfont=\toks18
+\MPscratchCnt=\count191
+\MPscratchDim=\dimen143
+\MPnumerator=\count192
+\makeMPintoPDFobject=\count193
+\everyMPtoPDFconversion=\toks19
+) (/usr/share/texlive/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty
+Package: epstopdf-base 2020-01-24 v2.11 Base part for package epstopdf
+Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
+85.
+
+(/usr/share/texlive/texmf-dist/tex/latex/latexconfig/epstopdf-sys.cfg
+File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
+e
+))
+LaTeX Font Info:    Trying to load font information for U+msa on input line 138
+.
+
+(/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsa.fd
+File: umsa.fd 2013/01/14 v3.01 AMS symbols A
+)
+LaTeX Font Info:    Trying to load font information for U+msb on input line 138
+.
+
+(/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsb.fd
+File: umsb.fd 2013/01/14 v3.01 AMS symbols B
+)
+Overfull \hbox (2.61108pt too wide) has occurred while \output is active
+[] 
+ []
+
+[1
+
+
+{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}]
+
+Package natbib Warning: Citation `MONAI' on page 2 undefined on input line 160.
+
+
+
+Package natbib Warning: Citation `tensorflow' on page 2 undefined on input line
+ 160.
+
+
+Package natbib Warning: Citation `Julia' on page 2 undefined on input line 160.
+
+
+
+Package natbib Warning: Citation `besard2019prototyping' on page 2 undefined on
+ input line 160.
+
+
+Package natbib Warning: Citation `ParallelStencil' on page 2 undefined on input
+ line 160.
+
+[2]
+<PETCTCORONAL.png, id=18, 576.65437pt x 587.19376pt>
+File: PETCTCORONAL.png Graphic file (type png)
+<use PETCTCORONAL.png>
+Package pdftex.def Info: PETCTCORONAL.png  used on input line 166.
+(pdftex.def)             Requested size: 370.49881pt x 377.2811pt.
+
+
+Package natbib Warning: Citation `Mitura2021' on page 3 undefined on input line
+ 172.
+
+[3] [4 <./PETCTCORONAL.png>]
+
+Package natbib Warning: Citation `Nature' on page 5 undefined on input line 182
+.
+
+
+Package natbib Warning: Citation `TahaMainSegm' on page 5 undefined on input li
+ne 182.
+
+
+Package natbib Warning: Citation `TahaMainSegm' on page 5 undefined on input li
+ne 182.
+
+
+Package natbib Warning: Citation `Pymia' on page 5 undefined on input line 184.
+
+
+
+Package natbib Warning: Citation `MONAI' on page 5 undefined on input line 184.
+
+
+
+Package natbib Warning: Citation `MONAI' on page 5 undefined on input line 184.
+
+
+
+Package natbib Warning: Citation `TahaMainSegm' on page 5 undefined on input li
+ne 184.
+
+
+Package natbib Warning: Citation `pytorch' on page 5 undefined on input line 18
+4.
+
+
+Package natbib Warning: Citation `Pymia' on page 5 undefined on input line 184.
+
+
+
+Package natbib Warning: Citation `TahaMainSegm' on page 5 undefined on input li
+ne 184.
+
+[5]
+
+Package natbib Warning: Citation `dicom' on page 6 undefined on input line 188.
+
+
+
+Package natbib Warning: Citation `hdf5' on page 6 undefined on input line 190.
+
+
+Package natbib Warning: Citation `hdf5Medical' on page 6 undefined on input lin
+e 190.
+
+
+Package natbib Warning: Citation `hdf5GPU' on page 6 undefined on input line 19
+2.
+
+
+Package natbib Warning: Citation `CTORG' on page 6 undefined on input line 196.
+
+
+
+Package natbib Warning: Citation `BenchmarkTools' on page 6 undefined on input 
+line 196.
+
+[6]
+<bk.png, id=33, 858.20625pt x 514.17094pt>
+File: bk.png Graphic file (type png)
+<use bk.png>
+Package pdftex.def Info: bk.png  used on input line 200.
+(pdftex.def)             Requested size: 390.0pt x 233.65785pt.
+
+
+Package natbib Warning: Citation `BenchmarkTools' on page 7 undefined on input 
+line 208.
+
+[7 <./bk.png>]
+<Przechwytywanie.png, id=41, 673.01437pt x 418.56375pt>
+File: Przechwytywanie.png Graphic file (type png)
+<use Przechwytywanie.png>
+Package pdftex.def Info: Przechwytywanie.png  used on input line 214.
+(pdftex.def)             Requested size: 390.0pt x 242.54999pt.
+ [8 <./Przechwytywanie.png>]
+Underfull \hbox (badness 10000) in paragraph at lines 235--236
+[]\OT1/cmr/m/n/12 The pack-age is open source and avail-able on GitHub
+ []
+
+
+Underfull \hbox (badness 1281) in paragraph at lines 235--236
+\OT1/cmr/m/n/12 con-tact the au-thor via LinkedIn https://linkedin.com/in/jakub
+-mitura-
+ []
+
+[9]
+No file paper.bbl.
+
+Package natbib Warning: There were undefined citations.
+
+[10] (./paper.aux) ) 
+Here is how much of TeX's memory you used:
+ 3120 strings out of 483183
+ 46798 string characters out of 5966293
+ 281927 words of memory out of 5000000
+ 18125 multiletter control sequences out of 15000+600000
+ 540498 words of font info for 56 fonts, out of 8000000 for 9000
+ 14 hyphenation exceptions out of 8191
+ 38i,7n,34p,1611b,260s stack positions out of 5000i,500n,10000p,200000b,80000s
+</usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/
+cm/cmbx12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmm
+i10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb
+></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/
+share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/share/t
+exlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/share/texlive/t
+exmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/share/texlive/texmf-d
+ist/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/share/texlive/texmf-dist/fo
+nts/type1/public/amsfonts/cm/cmti12.pfb></usr/share/texlive/texmf-dist/fonts/ty
+pe1/public/amsfonts/cm/cmti7.pfb></usr/share/texlive/texmf-dist/fonts/type1/pub
+lic/amsfonts/cm/cmtt10.pfb>
+Output written on paper.pdf (10 pages, 297373 bytes).
+PDF statistics:
+ 88 PDF objects out of 1000 (max. 8388607)
+ 58 compressed objects within 1 object stream
+ 0 named destinations out of 1000 (max. 500000)
+ 16 words of extra memory for PDF output out of 10000 (max. 10000000)
+

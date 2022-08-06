@@ -1,6 +1,6 @@
 module HDF5saveUtils
 using HDF5
-
+using MedEye3dvisualizationFromHdf5
 export saveManualModif,saveMaskbyName,saveMaskBeforeVisualization
 
 
