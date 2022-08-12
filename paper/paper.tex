@@ -1,141 +1,26 @@
-%% 
-%% Copyright 2007-2020 Elsevier Ltd
-%% 
-%% This file is part of the 'Elsarticle Bundle'.
-%% ---------------------------------------------
-%% 
-%% It may be distributed under the conditions of the LaTeX Project Public
-%% License, either version 1.2 of this license or (at your option) any
-%% later version.  The latest version of this license is in
-%%    http://www.latex-project.org/lppl.txt
-%% and version 1.2 or later is part of all distributions of LaTeX
-%% version 1999/12/01 or later.
-%% 
-%% The list of all files belonging to the 'Elsarticle Bundle' is
-%% given in the file `manifest.txt'.
-%% 
 
-%% Template article for Elsevier's document class `elsarticle'
-%% with numbered style bibliographic references
-%% SP 2008/03/01
-%%
-%% 
-%%
-%% $Id: elsarticle-template-num.tex 190 2020-11-23 11:12:32Z rishi $
-%%
-%%
-\documentclass[preprint,12pt]{elsarticle}
-
-%% Use the option review to obtain double line spacing
-%% \documentclass[authoryear,preprint,review,12pt]{elsarticle}
-
-%% Use the options 1p,twocolumn; 3p; 3p,twocolumn; 5p; or 5p,twocolumn
-%% for a journal layout:
-%% \documentclass[final,1p,times]{elsarticle}
-%% \documentclass[final,1p,times,twocolumn]{elsarticle}
-%% \documentclass[final,3p,times]{elsarticle}
-%% \documentclass[final,3p,times,twocolumn]{elsarticle}
-%% \documentclass[final,5p,times]{elsarticle}
-%% \documentclass[final,5p,times,twocolumn]{elsarticle}
-
-%% For including figures, graphicx.sty has been loaded in
-%% elsarticle.cls. If you prefer to use the old commands
-%% please give \usepackage{epsfig}
-
-%% The amssymb package provides various useful mathematical symbols
-\usepackage{amssymb}
-%% The amsthm package provides extended theorem environments
-%% \usepackage{amsthm}
-
-%% The lineno packages adds line numbers. Start line numbering with
-%% \begin{linenumbers}, end it with \end{linenumbers}. Or switch it on
-%% for the whole article with \linenumbers.
-%% \usepackage{lineno}
-
-\journal{JuliaCon Proceedings}
+% JuliaCon proceedings template
+\documentclass{juliacon}
+\setcounter{page}{1}
 
 \begin{document}
-\sloppy
 
-\begin{frontmatter}
+\input{header}
 
-%% Title, authors and addresses
-
-%% use the tnoteref command within \title for footnotes;
-%% use the tnotetext command for theassociated footnote;
-%% use the fnref command within \author or \address for footnotes;
-%% use the fntext command for theassociated footnote;
-%% use the corref command within \author for corresponding author footnotes;
-%% use the cortext command for theassociated footnote;
-%% use the ead command for the email address,
-%% and the form \ead[url] for the home page:
-%% \title{Title\tnoteref{label1}}
-%% \tnotetext[label1]{}
-%% \author{Name\corref{cor1}\fnref{label2}}
-%% \ead{email address}
-%% \ead[url]{home page}
-%% \fntext[label2]{}
-%% \cortext[cor1]{}
-%% \affiliation{organization={},
-%%             addressline={},
-%%             city={},
-%%             postcode={},
-%%             state={},
-%%             country={}}
-%% \fntext[label3]{}
-\title{MedVoxelHD: Improved CUDA-accelerated morphological Hausdorff distances in medical image analysis}
-
-%% use optional labels to link authors explicitly to addresses:
-%% \author[label1,label2]{}
-%% \affiliation[label1]{organization={},
-%%             addressline={},
-%%             city={},
-%%             postcode={},
-%%             state={},
-%%             country={}}
-\ead{jakub.mitura14@gmail.com}
-%%  
-%% \affiliation[label2]{organization={},
-%%             addressline={},
-%%             city={},
-%%             postcode={},
-%%             state={},
-%%             country={}}
-
-\author[inst1,inst2]{Jakub Mitura}
-
-
-
-\author[inst2]{Beata E. Chrapko}
-
-\affiliation[inst1]{organization={National Information Processing Institute},%Department and Organization
-            addressline={al. Niepodległości 188 B}, 
-            city={Warsaw},
-            postcode={00-608}, 
-            state={woj. Mazowieckie},
-            country={Poland}}
-
-
-\affiliation[inst2]{organization={Medical University of Lublin},%Department and Organization
-            addressline={Al. Racławickie 1}, 
-            city={Lublin},
-            postcode={20-059}, 
-            state={woj. Lubelskie},
-            country={Poland}}
+\maketitle
 
 \begin{abstract}
 %% Text of abstract
 Medical image segmentation is a rapidly developing field of computer vision. This area of research requires knowledge in radiologic imaging, mathematics, and computer science. Multiple software packaged have been developed to  assist researchers in the field. However, due to the rapidly changing scientific environment, some tools are longer  effective for some users. This is the case of Julia language users that require support for the interactive programming development style that is not popular among traditional software tools. Other characteristic of modern programming for 3 dimensional medical imaging data is GPU acceleration which can give outstanding improvement of algorithms performance in case of working on object that can be represented as big arrays like those present in 3D medical imaging. Hence in this work author presents sets of new Julia language software tools that are designed to fulfill emerging needs. Those tools encompass GPU accelerated medical image viewer with annotation possibility that is characterized by very convenient programming interface. CUDA accelerated Medical segmentation metrics tool that supply state of the art implementations of algorithms required for quantification of similarity between algorithm output and gold standard. Lastly set of utility tools connecting those two mentioned packages with HDF5 file system.
+
+\keywords{CUDA,computer tomography,medical image segmentation  }
+
+
 \end{abstract}
 
-\begin{keyword}
 %% keywords here, in the form: keyword \sep keyword
-CUDA \sep computer tomography \sep medical image segmentation
 %% PACS codes here, in the form: \PACS code \sep code
 
-\end{keyword}
-
-\end{frontmatter}
 
 %% \linenumbers
 
@@ -163,7 +48,7 @@ For 3D medical image segmentation typical problem is related to size of the imag
 
 \begin{figure}[t!]
 	\centering
-	\includegraphics[width=0.95\textwidth]{PETCTCORONAL.png}
+	\includegraphics[width=0.5\textwidth]{PETCTCORONAL.png}
 	\caption{transverse Display FDG PET/CT}
 	\label{fig:PETCTCORONAL}
 	\centering
@@ -234,24 +119,10 @@ In order to make development process even easier in the last chapter author pres
 \section*{Acknowledgement}
 The package is open source and available on GitHub https://github.com/jakubMitura14/MedPipe3D.jl under the Apache license. In case of any feature request, bug reporting, contribution propositions contact the author via LinkedIn https://linkedin.com/in/jakub-mitura-7b2013151/ or in the issues section of GitHub repository.
 
-%% If you have bibdatabase file and want bibtex to generate the
-%% bibitems, please use
-%%
- \bibliographystyle{elsarticle-num} 
- \bibliography{ref}
+\bibliography{ref}
 
-%% else use the following coding to input the bibitems directly in the
-%% TeX file.
+\input{bib.tex}
 
-% \begin{thebibliography}{00}
-
-% %% \bibitem{label}
-% %% Text of bibliographic item
-
-% \bibitem{}
-
-% \end{thebibliography}
 \end{document}
-\endinput
-%%
-%% End of file `elsarticle-template-num.tex'.
+
+% Inspired by the International Journal of Computer Applications template
