@@ -1,4 +1,4 @@
-title: "MedVoxelHD: Improved CUDA-accelerated morphological Hausdorff distances in medical image analysis"
+title: "MedPipe3D.jl: GPU accelerated medical image segmentation framework"
 keywords:
   - Julia
   - Computer Tomography
