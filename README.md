@@ -1,4 +1,4 @@
-# MedPipe
+# MedPipe3D.jl: GPU accelerated medical image segmentation framework
 Package that enable working on GPU accelerated medical image segmentation using Julia. The tech stack includes :
 
 
