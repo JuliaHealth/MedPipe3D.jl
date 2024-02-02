@@ -11,7 +11,7 @@ PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
 
 [compat]
 ColorTypes = "0.11.4"
-HDF5 = "0.17.1"
+HDF5 = ">=0.17.1"
 MedEval3D = "0.2.0"
 PythonCall = "0.8.0"
-julia = "1.9"
+julia = ">=1.9"
