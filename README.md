@@ -1,17 +1,14 @@
 # MedPipe3D.jl: GPU accelerated medical image segmentation framework
-Package that enable working on GPU accelerated medical image segmentation using Julia. The tech stack includes :
+Currently most development is in MedImage.jl and MedEye3d.jl. This package  is created mostly as utility for connecting rest of medical imaging ecosystem. Futher development is planned for summer 2024.
+This package that enable working on GPU accelerated medical image segmentation using Julia. The tech stack includes :
 
-
+MedImage.jl -https://github.com/JuliaHealth/MedImage.jl/blob/main/README.md
 MedEye3d.jl - OpenGL based tool for viewing and annotation of 3D medical imagiing
-
-
 MedEval3D.jl - CUDA accelerated package with 3D medical image segmentation algorithms
-
-
 HDF5.jl - Julia interface to HDF5 file system which is proven to give higher performance than native medical imagiing formats
-
-
 MONAI - Python package called in Julia using PythonCall - used for preprocessing
+
+
 
 Tutorial can be found on https://github.com/jakubMitura14/MedPipe3DTutorial/tree/master
 
