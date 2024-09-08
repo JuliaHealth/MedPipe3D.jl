@@ -1,5 +1,3 @@
-module MetricEvaluator
-
 using ComputerVisionMetrics
 
 export evaluate_metric
@@ -28,11 +26,6 @@ dice_score = evaluate_metric(prediction, ground_truth, config)
 ```
 """
 function evaluate_metric(image, label, config::Configuration)
-  
-    if config.use_gpu
-        image = CUDA.array(image)
-        label = CUDA.array(label)
-    end
 
     if config.metric == :hausdorff
         return hausdorff_metric(image, label)
@@ -43,4 +36,3 @@ function evaluate_metric(image, label, config::Configuration)
     end
 end
 
-end

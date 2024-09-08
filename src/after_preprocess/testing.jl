@@ -1,4 +1,3 @@
-module testing
 using image_processing, manage_indicies, get_metric, logging
 
 """
@@ -79,21 +78,22 @@ Evaluates the test set and returns all test metrics.
 # Returns
 - `all_test_metrics`: The evaluation metrics for all test data.
 """
-function evaluate_test_set(test_indices, model, tstates, test_time_augs, config,metadata_ref)
+function evaluate_test_set(test_indices, model, tstates, test_time_augs, config,metadata_ref,logger)
     all_test_metrics = []
     for test_index in test_indices
-        test_data, test_label = fetch_and_preprocess_data(test_index)
-        results, test_metrics = evaluate_patches(test_data, tstates, test_time_augs, model, config)
+        test_data, test_label,attributes = fetch_and_preprocess_data(test_index)
+        results, test_metrics = evaluate_patches(test_data, tstates, test_time_augs, model, config,attributes)
+
         y_pred, metr = process_results(results, test_metrics, config)
+        #TODO get output folder from config and get filename from metadata - like patiend id or original file name
         save_results(y_pred, filename, metadata_ref)
         push!(all_test_metrics, metr)
     end
 
     if config.log_metrics
-        log_metric(config.logger, "mean_metric", metr, epoch)
+        log_metric(logger, "mean_metric", metr, epoch)
     end
 
     return all_test_metrics
 end
 
-end

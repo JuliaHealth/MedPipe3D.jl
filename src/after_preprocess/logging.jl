@@ -1,4 +1,3 @@
-module logging
 
 """
     log_metric(logger::TBLogger, name::AbstractString, value::Number, epoch::Int)
@@ -44,4 +43,3 @@ function save_results(results, filename, metadata_ref)
 
 end
 
-end

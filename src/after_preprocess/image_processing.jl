@@ -1,4 +1,3 @@
-module image_processing
 using Random
 
 """
@@ -95,52 +94,14 @@ Perform largest connected components analysis on a 5D tensor.
 - An integer array where all voxels from each connected component have a different integer associated with it, retaining only the largest `n_components`.
 """
 function largest_connected_components(tensor, config::Configuration)
-    batch_size, channels, dim1, dim2, dim3 = size(tensor)
-    result = zeros(Int, size(tensor))
 
-    for b in 1:batch_size
-        for c in 1:channels
-            component_labels = label_components(tensor[b, c, :, :, :])
-            component_sizes = count_components(component_labels)
-            sorted_components = sortperm(component_sizes, rev=true)
-            largest_components = sorted_components[1:config.n_components]
-
-            for i in 1:dim1
-                for j in 1:dim2
-                    for k in 1:dim3
-                        label = component_labels[i, j, k]
-                        if label in largest_components
-                            result[b, c, i, j, k] = label
-                        end
-                    end
-                end
-            end
-        end
-    end
 
     return result
 end
 
-# Helper function to label connected components
-function label_components(volume)
-    labeled_volume, _ = connected_components(volume)
-    return labeled_volume
-end
-
-# Helper function to count the size of each component
-function count_components(labeled_volume)
-    max_label = maximum(labeled_volume)
-    component_sizes = zeros(Int, max_label)
-    for label in 1:max_label
-        component_sizes[label] = sum(labeled_volume .== label)
-    end
-    return component_sizes
-end
 
 
 
 
 
 
-
-end

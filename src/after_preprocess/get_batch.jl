@@ -1,6 +1,3 @@
-module get_batch
-
-export get_patch, pad, get_random_patch, get_nonzero_patch, retrieve_image, maybe_extract_patch, stack_images, get_batch
 
 using HDF5
 using manage_indicies
@@ -235,18 +232,17 @@ function fetch_and_preprocess_data(indices_list, hdf5_ref, config::Configuration
      if config.label_present
         label = get_batch(indices_list, hdf5_ref, config, true)
     end
-    
-    if config.device == "CUDA"
-        data = CUDA.array(test_data)
-        if config.label_present
-            label = CUDA.array(test_label)
-        end
+    data=cast_to_device(data, config)
+
+    label=[]
+    if(config.label_present)
+        label=cast_to_device(label, config)
     end
+    # we get a vector of attributes as model may need it
     attributes=map(in->manage_indicies.read_attributes(hdf5_ref,in),indices_list)
-    return data, label
+    return data, label,attributes
 end
 
 
-end # module
 
 

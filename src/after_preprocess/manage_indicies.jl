@@ -1,4 +1,3 @@
-module manage_indicies
 
 using HDF5
 using Random
@@ -288,4 +287,3 @@ function split_by_config(groups::Vector{String}, attributes::Dict{String, Any}, 
     return split_dict
 end
 
-end #module

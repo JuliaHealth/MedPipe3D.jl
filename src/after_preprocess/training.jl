@@ -1,4 +1,3 @@
-module training
 using Lux
 """
 Initializes the training state for the model.
@@ -28,32 +27,28 @@ Trains the model for a specified number of epochs.
 # Returns
 - The updated training state after training.
 """
-function train_epoch(train_indices, model, tstate, num_epochs,config,loss_function)
+function train_epoch(train_indices, model, tstate, num_epochs,config,loss_function,logger)
         train_metric = []
 
         for train_index_sublist in train_indices
-            data, label = fetch_and_preprocess_data(train_index_sublist)
+            data, label,attributes = fetch_and_preprocess_data(train_index_sublist)
             data = augment(data)
-            if  (config.device=="CUDA")
-                data = cu(data) # Move data to GPU
-                label = cu(label) # Move data to GPU
-            end
+
+            #TODO we need to make sure that used has a model that accept a tuple as the argument 
+            #with the data label and the attributes - label may be just empty vector if not needed
             _, loss, _, tstate = Lux.Experimental.single_train_step!(
                 Lux.Experimental.ADTypes.AutoZygote(),
                 loss_function,
-                CuArray(data[train_index]), label,
+                (CuArray(data[train_index]), label,attributes),
                 tstate)
 
             if config.log_train || config.early_stopping
                 train_metrics = []
                 for train_index_sublist in train_indices
-                    data, label = fetch_and_preprocess_data(train_index_sublist)
+                    data, label,attributes = fetch_and_preprocess_data(train_index_sublist)
                     data = augment(data)
-                    if config.device == "CUDA"
-                        data = cu(data) # Move data to GPU
-                        label = cu(label) # Move data to GPU
-                    end
-                    y_pred, st = infer_model(tstate, model, data)
+
+                    y_pred, st = infer_model(tstate, model, data,attributes)
                     metric = evaluate_metric(y_pred, label, config)
                     push!(train_metrics, metric)
                 end
@@ -78,6 +73,5 @@ function train_epoch(train_indices, model, tstate, num_epochs,config,loss_functi
     return tstate,train_metric
 end
 
-end
 
 
