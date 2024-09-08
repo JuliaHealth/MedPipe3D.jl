@@ -49,7 +49,7 @@ function train_epoch(train_indices, model, tstate, num_epochs,config,loss_functi
                     data = augment(data)
 
                     y_pred, st = infer_model(tstate, model, data,attributes)
-                    metric = evaluate_metric(y_pred, label, config)
+                    metric = evaluate_metric(y_pred, label,attributes, config)
                     push!(train_metrics, metric)
                 end
                 

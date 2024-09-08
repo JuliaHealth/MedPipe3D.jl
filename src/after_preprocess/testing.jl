@@ -30,7 +30,7 @@ function evaluate_patches(test_data, tstates, test_time_augs, model, config)
         end
         y_pred = reverse_aug(y_pred)
         push!(results, y_pred)
-        metr = evaluate_metric(y_pred, test_label)
+        metr = evaluate_metric(y_pred, test_label,attributes, config)
         push!(test_metrics, metr)
         if config.log_metrics
             log_metric(config.logger, "test_metric", metr, epoch)

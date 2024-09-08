@@ -77,14 +77,15 @@ Main loop function to process HDF5, initialize training state, and perform train
 """
 function main_loop(db_path::String, config::Configuration, rng::AbstractRNG, model, loss_function,  metadata_ref)
     
-
+    # Seeding
+    rng = Xoshiro(0)
     # Initialize logger
     logger = TBLogger(config.logger_path, min_level=Logging.Info)
 
     #get optimiser
     opt = get_optimiser(config.optimizer, config_optimiser_args)
     num_epochs=config.num_epochs
-    test_time_augs=config.test_time_augs
+
     # Process HDF5 to get indices
     h5=HDF5.open(db_path)
     indices_dict = process_hdf5(h5, config, rng)    

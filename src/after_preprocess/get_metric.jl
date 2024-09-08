@@ -3,14 +3,16 @@ using ComputerVisionMetrics
 export evaluate_metric
 
 
-"""
-    evaluate_metric(image, label, config::Configuration)
 
-Evaluate the specified metric between the given `image` and `label` based on the provided `config`.
+"""
+    evaluate_metric(output, label, attributes, config::Configuration)
+
+Evaluate the specified metric between the given `output` and `label` based on the provided `config`.
 
 # Arguments
-- `image`: The predicted segmentation mask.
+- `output`: The predicted segmentation mask.
 - `label`: The ground truth segmentation mask.
+- `attributes`: Additional attributes that may contain class information.
 - `config::Configuration`: Configuration object that specifies the metric to use and whether to use GPU.
 
 # Returns
@@ -22,17 +24,25 @@ Evaluate the specified metric between the given `image` and `label` based on the
 # Example
 ```julia
 config = Configuration(metric=:dice, use_gpu=false)
-dice_score = evaluate_metric(prediction, ground_truth, config)
+dice_score = evaluate_metric(prediction, ground_truth, attributes, config)
 ```
 """
-function evaluate_metric(image, label, config::Configuration)
-
-    if config.metric == :hausdorff
-        return hausdorff_metric(image, label)
-    elseif config.metric == :dice
-        return dice_metric(image, label)
+function evaluate_metric(output, label, attributes, config::Configuration)
+    if isempty(label)
+        # Extract class information from attributes
+        classes = [attr.class for attr in attributes]
+        # Apply argmax to the output to get predicted classes
+        predicted_classes = argmax(output, dims=2)
+        # Calculate accuracy
+        accuracy = sum(predicted_classes .== classes) / length(classes)
+        return accuracy
     else
-        throw(ArgumentError("Unsupported metric: $(config.metric)"))
+        if config.metric == :hausdorff
+            return hausdorff_metric(output, label)
+        elseif config.metric == :dice
+            return dice_metric(output, label)
+        else
+            throw(ArgumentError("Unsupported metric: $(config.metric)"))
+        end
     end
 end
-

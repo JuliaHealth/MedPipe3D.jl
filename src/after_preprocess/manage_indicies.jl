@@ -48,7 +48,7 @@ This function processes the HDF5 file to extract groups and attributes. It then 
 """
 function process_hdf5(db_path::String, config::Configuration, rng::AbstractRNG) :: Dict
     groups, attributes = get_hdf5_groups_and_attributes(db_path)
-    split_dict = has_split_attributes(attributes) ? split_by_attributes(groups, attributes) : split_by_config(groups, attributes, config, rng)
+    split_dict = has_split_attributes(attributes) ? split_by_attributes(groups, attributes,rng) : split_by_config(groups, attributes, config, rng)
     
     for key in keys(split_dict)
         split_dict[key] = batch_indices(split_dict[key], config.batch_size, config.drop_last)
@@ -179,7 +179,7 @@ Split indices into two groups with approximately similar class compositions base
 # Returns
 - `Tuple{Vector{Int}, Vector{Int}}`: Two vectors of indices representing the two groups.
 """
-function stratified_split(indices::Vector{Int}, classes::Vector{String}, proportion::Float64)
+function stratified_split(indices::Vector{Int}, classes::Vector{String}, proportion::Float64,rng)
     # Ensure the proportion is between 0 and 1
     @assert 0 <= proportion <= 1 "Proportion must be between 0 and 1"
 
@@ -196,7 +196,7 @@ function stratified_split(indices::Vector{Int}, classes::Vector{String}, proport
         n_group1 = Int(round(proportion * n))
         
         # Shuffle indices to ensure randomness
-        shuffled_idxs = shuffle(idxs)
+        shuffled_idxs = shuffle(idxs,rng)
         
         # Split indices into two groups
         append!(group1, shuffled_idxs[1:n_group1])
