@@ -274,7 +274,7 @@ function split_by_config(groups::Vector{String}, attributes::Dict{String, Any}, 
             class_labels = [attributes[group]["class"] for group in groups]
             
             # Perform stratified n-fold cross-validation
-            # Jeżeli nie ma class to tak jak u góry
+            # Jeżeli nie ma class to tak jak u góry, do zmodyfikowania 42 min
             folds = stratified_split(groups, class_labels, config.n_fold_cross_val, rng)
             
             for i in 1:config.n_fold_cross_val
