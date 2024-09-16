@@ -172,16 +172,14 @@ end
 Split indices into two groups with approximately similar class compositions based on the given proportion.
 
 # Arguments
-- `indices::Vector{Int}`: Vector of indices to be split.
+- `indices::Vector{String}`: Vector of indices to be split.
 - `classes::Vector{String}`: Vector of class labels corresponding to the indices.
 - `proportion::Float64`: Proportion of indices to be included in the first group.
 
 # Returns
 - `Tuple{Vector{Int}, Vector{Int}}`: Two vectors of indices representing the two groups.
 """
-function stratified_split(indices::Vector{Int}, classes::Vector{String}, proportion::Float64,rng)
-    # Ensure the proportion is between 0 and 1
-    @assert 0 <= proportion <= 1 "Proportion must be between 0 and 1"
+function stratified_split(indices::Vector{String}, classes::Vector{String}, proportion::Float64,rng)
 
     # Group indices by class
     class_indices = group_indices(classes)
@@ -264,17 +262,19 @@ function split_by_config(groups::Vector{String}, attributes::Dict{String, Any}, 
     n_train = n - n_test - n_val
     
     # Split the groups
+    # Tutaj powinno być sprawdzanie class 
     split_dict["test"] = groups[1:n_test]
     split_dict["validation"] = groups[n_test+1:n_test+n_val]
     split_dict["training"] = groups[n_test+n_val+1:end]
     
     # Handle n-fold cross-validation if specified
-    if config.n_fold_cross_val > 0
+    if config.n_fold_cross_val > 1
         if "class" in keys(attributes[groups[1]])
             # Extract class labels for stratified split
             class_labels = [attributes[group]["class"] for group in groups]
             
             # Perform stratified n-fold cross-validation
+            # Jeżeli nie ma class to tak jak u góry
             folds = stratified_split(groups, class_labels, config.n_fold_cross_val, rng)
             
             for i in 1:config.n_fold_cross_val
