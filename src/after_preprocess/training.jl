@@ -12,7 +12,7 @@ Initializes the training state for the model.
 """
 function initialize_train_state(rng, model, opt)
     tstate = Lux.Experimental.TrainState(rng, model, opt)
-    return cu(tstate)
+    return cu(tstate) #popraw pod backend
 end
 
 """
