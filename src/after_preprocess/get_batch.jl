@@ -14,12 +14,7 @@ Get a patch from a 4D image with probabilistic oversampling based on the label.
 - A patch from the image.
 """
 function get_patch(image::Array{T, 4}, label::Array{T, 4}, patch_size::Tuple{Int, Int, Int, Int}, p::Float64) where T
-    # Check if patch size fits in the image
-    for i in 1:4
-        if patch_size[i] > size(image, i)
-            error("Patch size does not fit in the image")
-        end
-    end
+    # Dodać 
 
     # Evaluate Bernoulli with probability p
     if rand(Bernoulli(p)) == 0
