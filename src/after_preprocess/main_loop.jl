@@ -43,9 +43,9 @@ function epoch_loop(num_epochs, train_indices, val_indices, model, tstate, confi
         if current_val_metric > best_val_metric
             best_val_metric = current_val_metric
             patience_counter = 0
-        else                
             # Saving the model if the validation metric is currently the best one
             @save config.checkpoint_path tstate.parameters, tstate.states
+        else                
 
             patience_counter += 1
         end
