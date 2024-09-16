@@ -191,17 +191,18 @@ Get a batch of images from the HDF5 database.
 """
 function get_batch(indices, hdf5_ref, config, is_label::Bool)
     images = []
+    labels = []
     for index in indices
         if is_label
-            image = retrieve_label(hdf5_ref, index)
+            label = retrieve_label(hdf5_ref, index)
         else
             image = retrieve_image(hdf5_ref, index)
         end
-        label = retrieve_image(hdf5_ref, index)  # Assuming label is stored in the same index
         image = maybe_extract_patch(image, label, config)
         push!(images, image)
+        push!(labels, label)
     end
-    return stack_images(images)
+    return stack_images(images), stack_images(labels)
 end
 
 
