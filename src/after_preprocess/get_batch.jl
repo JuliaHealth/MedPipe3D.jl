@@ -176,7 +176,7 @@ Stack a list of 4D images into a 5D tensor.
 - A 5D tensor.
 """
 function stack_images(images)
-    return cat(images..., dims=1)
+    return cat(images..., dims=end)
 end
 
 """
@@ -227,15 +227,9 @@ test_data, test_label = fetch_and_preprocess_data([1, 2, 3], config)
 """
 function fetch_and_preprocess_data(indices_list, hdf5_ref, config::Configuration) 
     
-    data = get_batch(indices_list, hdf5_ref, config, false)
-    label = nothing
-    
-     if config.label_present
-        label = get_batch(indices_list, hdf5_ref, config, true)
-    end
+    data, labek = get_batch(indices_list, hdf5_ref, config, false)
     data=cast_to_device(data, config)
 
-    label=[]
     if(config.label_present)
         label=cast_to_device(label, config)
     end
