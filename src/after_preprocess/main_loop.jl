@@ -40,7 +40,7 @@ function epoch_loop(num_epochs, train_indices, val_indices, model, tstate, confi
         val_metrics = evaluate_validation(val_indices, model, tstate, config,logger)
 
         current_val_metric = mean(val_metrics)
-        if current_val_metric < best_val_metric
+        if current_val_metric > best_val_metric
             best_val_metric = current_val_metric
             patience_counter = 0
         else                
