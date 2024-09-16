@@ -49,9 +49,13 @@ This function processes the HDF5 file to extract groups and attributes. It then 
 function process_hdf5(db_path::String, config::Configuration, rng::AbstractRNG) :: Dict
     groups, attributes = get_hdf5_groups_and_attributes(db_path)
     split_dict = has_split_attributes(attributes) ? split_by_attributes(groups, attributes,rng) : split_by_config(groups, attributes, config, rng)
-    
+
+    list_keys=collect(keys(split_dict))
+    remove!("test,"list_keys) #remove test from keys
+    split_dict["test"]=batch_indices(split_dict["test"], config.batch_size, config.drop_last)
     for key in keys(split_dict)
-        split_dict[key] = batch_indices(split_dict[key], config.batch_size, config.drop_last)
+        split_dict["train"] = batch_indices(split_dict[key], config.batch_size, config.drop_last)
+        split_dict["val"] = batch_indices(split_dict[key], config.batch_size, config.drop_last)
     end
     
     return split_dict
