@@ -1,3 +1,17 @@
+"""
+`get_loss_function(name::String)`
+
+A helper function to retrieve predefined loss functions based on their name, suitable for use in machine learning models.
+
+# Arguments
+- `name`: A string indicating the name of the desired loss function, e.g., "L1", "MSE", "CrossEntropy".
+
+# Returns
+- Returns the corresponding loss function object from the Lux library.
+
+# Errors
+- Throws an error if the provided loss function name does not match any of the predefined options.
+"""
 function get_loss_function(name::String)
     name = lowercase(name)
     if name == "l1" || name == "mae"

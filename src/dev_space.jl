@@ -1,8 +1,43 @@
-##################### Configuration #####################
-include("./Configuration/creat_configuration.jl")
-create_config_extended(".src/Tests_autput/Testy_config")
+##################### Testy configuration #####################
+#region testy configuracji
+include("./Configuration/configuration.jl")
+create_config_extended("C:\\MedPipe\\MedPipe3D.jl\\src\\Tests_autput\\Testy_config")
+
+# Creation of defoliant cofiguration
+## ✅ when no file exists
+## ✅ gdy istnieje plik zostaje nadpisany
+## ✅ plik o nowej nazwie
+
+#endregion
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Uruchomienie funkcji
 
 #region testy get_batch
 function test_patch_extraction()

@@ -22,13 +22,6 @@ Throws an error if the mode is neither "additive" nor "multiplicative".
 """
 function augment_brightness(image::Union{MedImage,Array{Float32, 3}}, value::Float64, mode::String)::Union{MedImage,Array{Float32, 3}}
     im = union_check_input(image)
-
-    # Store original min and max values before augmentation, excluding the minimum value
-    original_min, original_max = extrema(im)
-    masked_im = im[im .!= original_min]  # Mask out the minimum value from calculations
-    masked_min, masked_max = extrema(masked_im)
-    println("Masked min:", masked_min, "Masked max:", masked_max)
-
     # Apply augmentation, ignoring the minimum value
     if mode == "additive"
         im[im .!= original_min] .+= value  # Add value to each voxel except the minimum
@@ -37,16 +30,7 @@ function augment_brightness(image::Union{MedImage,Array{Float32, 3}}, value::Flo
     else
         error("Invalid mode. Choose 'additive' or 'multiplicative'.")
     end
-
-    # Clamp to the original range (ignoring the minimum for clamping)
-    im = clamp.(im, masked_min, masked_max)
-
-    # Check min and max after clamping
-    clamped_min, clamped_max = extrema(im)
-    println("After clamping - Min:", clamped_min, "Max:", clamped_max)
-
-    # Return the brightness-adjusted image with the same type as the input.
-    return union_check_output(image, im)
+    return union_check_output(image, im)  # Return the brightness-corrected image with the same type as the input.
 end
 
 
@@ -66,12 +50,9 @@ Adjust the contrast of an image by scaling its pixel values around the mean.
 """
 function augment_contrast(image::Union{MedImage,Array{Float32, 3}}, factor::Float64)::Union{MedImage,Array{Float32, 3}}
     im = union_check_input(image)
-    original_min, original_max = extrema(im)    
     mn = mean(im)                       # Calculate the mean of the image.
     im .= (im .- mn) .* factor .+ mn    # Scale voxel values around the mean by factor.
-    im = clamp.(im, original_min, original_max)
-    # Return the contrast-adjusted image with the same type as the input.
-    return union_check_output(image, im)
+    return union_check_output(image, im)# Return the contrast-corrected image with the same type as the input.
 end
 
 """
@@ -96,9 +77,7 @@ function augment_gamma(image::Union{MedImage,Array{Float32, 3}}, gamma::Float64)
     normalized_data = (im .- min_val) ./ (max_val - min_val)    # Normalize voxel values.
     transformed_data = normalized_data .^ gamma                 # Apply gamma correction.
     im .= (transformed_data .* (max_val - min_val)) .+ min_val  # Denormalize voxel values.
-
-    # Return the gamma-corrected image with the same type as the input.
-    return union_check_output(image, im)
+    return union_check_output(image, im)                        # Return the gamma-corrected image with the same type as the input.
 end
 
 
@@ -117,12 +96,9 @@ Add Gaussian noise to an image.
 """
 function augment_gaussian_noise(image::Union{MedImage,Array{Float32, 3}}, variance::Float64)::Union{MedImage,Array{Float32, 3}}
     im = union_check_input(image)
-    original_min, original_max = extrema(im)
     noise = rand(Normal(0.0, variance), size(im))               # Generate Gaussian noise.
     im .+= noise                                                # Add noise to the image.                       
-    im = clamp.(im, original_min, original_max)
-    # Return the noisy image with the same type as the input.
-    return union_check_output(image, im)
+    return union_check_output(image, im)                        # Return the noisy image with the same type as the input.
 end
 
 """

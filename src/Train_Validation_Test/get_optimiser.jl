@@ -1,3 +1,18 @@
+"""
+`get_optimiser(name::String)`
+
+A utility function designed to retrieve a specific optimizer from the Optimisers library based on its name, intended for use in setting up machine learning training configurations.
+
+# Arguments
+- `name`: A string representing the name of the desired optimizer, such as "Adam", "RMSProp", "AdaGrad", etc.
+
+# Returns
+- An optimizer object configured with default parameters.
+
+# Errors
+- Throws an error if the provided optimizer name does not correspond to any known optimizers in the library.
+"""
+
 function get_optimiser(name::String)
     name = lowercase(name)
     if name == "descent"

@@ -1,4 +1,24 @@
-#region Get_batch
+"""
+`fetch_and_preprocess_data(group_paths::Vector{String}, h5::HDF5.File, config::Dict{String, Any})`
+
+Fetches and preprocesses medical image data based on specified configurations, optionally using probabilistic oversampling and hardware acceleration.
+
+# Arguments
+- `group_paths`: A vector of paths specifying where the data groups are located within the HDF5 file.
+- `h5`: An open HDF5 file object from which data is to be fetched.
+- `config`: A dictionary containing configuration settings that dictate how data should be fetched and processed.
+
+# Returns
+- `Tuple`: A tuple containing arrays of images, labels, and a vector of unique class labels extracted from the dataset.
+
+# Description
+This function retrieves batches of images and their corresponding labels from an HDF5 file, applying probabilistic oversampling if specified in the configuration.
+It also handles the transfer of data to a GPU if indicated by the configuration settings.
+
+# Errors
+- Raises an error if there are issues accessing data from the HDF5 file.
+- Raises an error if configuration keys are missing or incorrectly formatted.
+"""
 
 function fetch_and_preprocess_data(group_paths::Vector, h5::HDF5.File, config::Dict)
 
@@ -18,7 +38,30 @@ function fetch_and_preprocess_data(group_paths::Vector, h5::HDF5.File, config::D
     unique_classes = unique(class_labels)
     return images, labels, unique_classes
 end
-#TODO: dodaj logi żeby było wiadomo czy multi class czy binary
+
+
+"""
+`get_batch_with_classes(group_paths::Vector{String}, h5::HDF5.File, config::Dict{String, Any})`
+
+Fetches batches of images and labels from specified groups within an HDF5 file, applying class-specific labeling based on configuration settings.
+
+# Arguments
+- `group_paths`: A vector of paths specifying locations within the HDF5 file from which to fetch data.
+- `h5`: An open HDF5 file object used for data retrieval.
+- `config`: A configuration dictionary that influences how data is fetched and labeled.
+
+# Returns
+- `Tuple`: Returns a tuple consisting of a tensor of images, a tensor of labels, and a vector of class labels.
+
+# Description
+It supports class-specific labeling by modifying the label data based on class indices derived from a JSON configuration.
+
+
+# Errors
+- Raises an error if there are issues accessing the specified paths within the HDF5 file.
+- Raises an error if class indices are incorrectly formatted or absent when required.
+"""
+#TODO: add logs so you know if multi class or binary
 function get_batch_with_classes(group_paths, h5::HDF5.File, config::Dict)
     images = []
     labels = []
@@ -52,6 +95,29 @@ function get_batch_with_classes(group_paths, h5::HDF5.File, config::Dict)
     labels_tensor = cat(labels..., dims=5)
     return images_tensor, labels_tensor, class_labels
 end
+
+
+
+"""
+`get_patch_batch_with_classes(group_paths::Vector{String}, h5::HDF5.File, config::Dict{String, Any})`
+
+Fetches and processes patches of images and labels from specified groups within an HDF5 file, applying class-specific labeling based on configuration settings, particularly suited for training on patch-based input.
+
+# Arguments
+- `group_paths`: A vector of paths specifying locations within the HDF5 file from which to fetch data.
+- `h5`: An open HDF5 file object used for data retrieval.
+- `config`: A configuration dictionary detailing how patches should be extracted and processed.
+
+# Returns
+- `Tuple`: Returns a tuple consisting of a tensor of image patches, a tensor of label patches, and a vector of class labels.
+
+# Description
+It supports class-specific labeling by modifying the label data based on class indices derived from a JSON configuration.
+
+# Errors
+- Raises an error if there are issues accessing the specified paths within the HDF5 file.
+- Raises an error if class indices are incorrectly formatted or absent when required.
+"""
 
 function get_patch_batch_with_classes(group_paths::Vector, h5::HDF5.File, config::Dict)
     images, labels, class_labels = [], [], []
@@ -100,6 +166,16 @@ function get_patch_batch_with_classes(group_paths::Vector, h5::HDF5.File, config
 end
 
 
+
+
+"""
+`get_class_labels(patient_groups::Vector, h5::HDF5.File, config::Dict)`
+
+A helper function for `get_batch_with_classes` and `get_patch_batch_with_classes`, responsible for extracting class labels and organizing groups by class based on metadata stored in an HDF5 file.
+
+# Description
+This function reads the class information from metadata and groups the data accordingly.
+"""
 function get_class_labels(patient_groups::Vector, h5::HDF5.File, config::Dict)
     # Extract class labels and organize groups by class
     class_groups = Dict{String, Vector{String}}()
@@ -146,6 +222,15 @@ function get_class_labels(patient_groups::Vector, h5::HDF5.File, config::Dict)
     return class_groups
 end
 
+
+"""
+`get_class_labels(patient_groups::Vector, h5::HDF5.File, config::Dict)`
+
+A helper function for `get_batch_with_classes` and `get_patch_batch_with_classes`, responsible for extracting class labels and organizing groups by class based on metadata stored in an HDF5 file.
+
+# Description
+This function reads the class information from metadata and groups the data accordingly.
+"""
 function get_class_mapping(patient_groups, h5, config)
     class_mapping = Dict{String, Vector{String}}()  # Define dictionary with String keys and Vector values
     class_counter = Dict{String, Int}()  # Track index for each unique class name
@@ -178,7 +263,14 @@ function get_class_mapping(patient_groups, h5, config)
 end
 
 
+"""
+`extract_patch(image, label, patch_size, config)`
 
+A helper function for `get_patch_batch_with_classes`, used to extract patches from images and labels based on a probability defined in the configuration.
+
+# Description
+This function decides between extracting a patch centered on nonzero label values or a random patch, depending on a randomly generated number and a threshold probability from the configuration.
+"""
 function extract_patch(image, label, patch_size, config)
     # Fetch the oversampling probability from the config
     println("Extracting patch.")
@@ -195,7 +287,14 @@ function extract_patch(image, label, patch_size, config)
 end
 
 
+"""
+`extract_nonzero_patch(image, label, patch_size)`
 
+A helper function for `extract_patch`, aimed at extracting image patches centered around nonzero label values.
+
+# Description
+If nonzero label values are present, this function selects one at random to center the patch around; otherwise, it defaults to extracting a random patch.
+"""
 function extract_nonzero_patch(image, label, patch_size)
     println("Extracting a patch centered around a non-zero label value.")
     indices = findall(x -> x != 0, label)
@@ -209,7 +308,16 @@ function extract_nonzero_patch(image, label, patch_size)
     end
 end
 
-# Function to get a patch centered around a specific index
+
+
+"""
+`get_centered_patch(image, label, center, patch_size)`
+
+A helper function for `extract_nonzero_patch`, used to extract a patch from an image and label centered around a specific index.
+
+# Description
+Calculates the necessary padding and extracts the patch ensuring it is centered on the chosen index, adjusting dimensions as required.
+"""
 function get_centered_patch(image, label, center, patch_size)
     center_coords = Tuple(center)
     half_patch = patch_size .÷ 2
@@ -256,7 +364,14 @@ function get_centered_patch(image, label, center, patch_size)
 end
 
 
+"""
+`get_random_patch(image, label, patch_size)`
 
+A helper function for `extract_patch`, which extracts a random patch from an image and label.
+
+# Description
+This function randomly selects a start index within the image and extracts a patch of specified size, adjusting the image dimensions if necessary to fit the patch size.
+"""
 function get_random_patch(image, label, patch_size)
     println("Extracting a random patch.")
     # Check if the patch size is greater than the image dimensions

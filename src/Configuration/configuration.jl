@@ -1,8 +1,48 @@
+#TODO: change the structure of the parameters 
+#TODO: rethink the use of the batch complement in the entire pipeline
+#TODO: requires parameter for probabilistic augmentations
+
+"""
+`create_config_extended(save_path::String, config_name="config.jl")::String`
+
+Generates a comprehensive configuration file for a medical image segmentation pipeline in JSON format, allowing extensive customization of data processing, augmentation, and model training parameters.
+
+# Arguments
+- `save_path`: The directory path where the configuration file will be saved.
+- `config_name`: The name of the configuration file to be saved, defaulting to "config.jl".
+
+# Returns
+- `String`: The path to the saved configuration file.
+
+# Description
+This function prompts the user through the command line to input various parameters related to data handling, augmentation strategies, model configuration, and learning specifics.
+It supports dynamic input for batch sizes, channel dimensions, augmentation types, model optimizer settings, and much more.
+Each parameter has default values, and the function uses conditional logic to handle optional and dependent parameters.
+After gathering all inputs, it compiles them into a structured dictionary, converts this dictionary to a JSON string, and saves it to the specified file path.
+
+# Errors
+Throws an error if file saving fails or if user input is incorrectly formatted for expected data types.
+"""
 function create_config_extended(save_path::String, config_name="config.jl")
     config = Dict()
     # I'm sorry for shity design patterns, I know its terribly stiff and unreadable
 # Data Parameters
-    println("Enter batch data parameters:")
+    println("Enter data parameters:")
+
+
+    println("Enter the channel size for images [default: 4]:")
+    channel_size_imgs_input = readline()
+    channel_size_imgs = isempty(channel_size_imgs_input) ? 4 : parse(Int, channel_size_imgs_input)
+
+    println("Enter the channel size for maks [default: 4]:")
+    channel_size_masks_input = readline()
+    channel_size_masks = isempty(channel_size_masks_input) ? 4 : parse(Int, channel_size_masks_input)
+
+
+    println("Resample to first image? (true/false): [default: false]")
+    resample_to_target_input = readline()
+    resample_to_target = isempty(resample_to_target_input) ? false : parse(Bool, resample_to_target_input)
+    
     println("Enter the batch size (batch_size) [default: 4]:")
     batch_size_input = readline()
     batch_size = isempty(batch_size_input) ? 4 : parse(Int, batch_size_input)
@@ -10,14 +50,6 @@ function create_config_extended(save_path::String, config_name="config.jl")
     batch_complete_input = readline()
     batch_complete = isempty(batch_complete_input) ? false : parse(Bool, batch_complete_input)
 
-    println("Enter the batch size (channel_size) [default: 4]:")
-    channel_size_input = readline()
-    channel_size = isempty(channel_size_input) ? 4 : parse(Int, channel_size_input)
-
-    println("Resample to first image? (true/false): [default: false]")
-    resample_to_target_input = readline()
-    resample_to_target = isempty(resample_to_target_input) ? false : parse(Bool, resample_to_target_input)
-    
     println("Resample spacing? (set/avg/median): [default: avg]")
     resample_to_spacing_input = readline()
     resample_to_spacing = isempty(resample_to_spacing_input) ? "avg" : resample_to_spacing_input
@@ -45,7 +77,8 @@ function create_config_extended(save_path::String, config_name="config.jl")
     data_params = Dict(
         "batch_size" => batch_size,
         "batch_complete" => batch_complete,
-        "channel_size" => channel_size,
+        "channel_size_imgs" => channel_size_imgs,
+        "channel_size_masks" => channel_size_masks,
         "resample_to_target" => resample_to_target,
         "resample_to_spacing" => resample_to_spacing,
         "target_spacing" => target_spacing,
@@ -68,16 +101,19 @@ function create_config_extended(save_path::String, config_name="config.jl")
         "Simulate low-resolution transform",
         "Elastic deformation transform"
     ]
-
     println("Select the augmentations you want to apply by entering their numbers separated by commas. The order will affect the processing sequence.")
     for (index, aug) in enumerate(augmentations)
         println("$(index). $aug")
     end
-
     selected_indices_input = readline()
-    selected_indices = parse.(Int, split(selected_indices_input, ","))
-    selected_order = [augmentations[i] for i in selected_indices]
-
+    if isempty(selected_indices_input)
+        selected_indices = []
+        selected_order = []
+    else
+        selected_indices = parse.(Int, split(selected_indices_input, ","))
+        selected_order = [augmentations[i] for i in selected_indices]
+        
+    end    
 # Collect Augmentation-Specific Parameters
     aug_params = Dict()
     for idx in selected_indices
@@ -224,7 +260,7 @@ function create_config_extended(save_path::String, config_name="config.jl")
     class_JSON_path = false
     additional_JSON_path = false
     n_folds = 1
-    n_lcc_input = nothing
+    n_lcc = nothing
     println("What metric for evaluation? (true/false): [default: dice]")
     metric_input = readline()
     metric = isempty(metric_input) ? "dice" : metric_input
@@ -391,7 +427,27 @@ function create_config_extended(save_path::String, config_name="config.jl")
     return json_path
 end
 
+"""
+`modify_config(config::Dict{String, Any}, action::Symbol, path::Vector{String}, value=nothing)::Dict{String, Any}`
 
+Modifies a configuration dictionary based on specified actions like adding, modifying, or removing entries.
+
+# Arguments
+- `config`: The configuration dictionary to modify.
+- `action`: The action to perform (`:add`, `:modify`, `:remove`).
+- `path`: A vector of strings specifying the path to the target configuration key.
+- `value`: The new value to set at the configuration key, necessary for `:add` and `:modify` actions.
+
+# Returns
+- `Dict{String, Any}`: The modified configuration dictionary.
+
+# Description
+This function navigates through the nested configuration dictionary to a specified key defined by the `path` and modifies it according to the `action`. It supports dynamic paths and provides user feedback through the console on the success or failure of the operation. It's robust against non-existent paths and actions, ensuring the stability of configuration modifications.
+
+# Errors
+Prints error messages directly to the console if the specified path is incorrect, the action is invalid, or required values for actions are not provided. 
+"""
+#TODO: rethink if needed
 function modify_config(config::Dict{String, Any}, action::Symbol, path::Vector{String}, value=nothing)
     current = config
     for i in 1:length(path)-1

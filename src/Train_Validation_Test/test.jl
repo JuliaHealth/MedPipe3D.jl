@@ -1,3 +1,23 @@
+#TODO: BIG DEVELOPMENTS in channel handling
+
+"""
+`evaluate_test_set_test(test_groups, h5, model, tstate, config)`
+
+Executes the evaluation of a trained model on a specified test set, capturing and returning performance metrics.
+
+# Arguments
+- `test_groups`: A list of group paths within the HDF5 file that define the test dataset.
+- `h5`: HDF5 file handle used to read test data.
+- `model`: The trained machine learning model to evaluate.
+- `tstate`: The state of the model, typically containing weights and potentially other parameters.
+- `config`: Configuration dictionary that may influence how data is processed and how evaluation is performed.
+
+# Returns
+- A list of metrics collected during the evaluation of each test group, providing insights into model performance.
+
+# Errors
+- Raises errors if there are issues accessing the test data, or if there are configuration mismatches during data processing or evaluation.
+"""
 function evaluate_test_set_test(test_groups, h5, model, tstate, config)
     println("Evaluating test set...")
     all_test_metrics = []
@@ -13,6 +33,20 @@ function evaluate_test_set_test(test_groups, h5, model, tstate, config)
     return all_test_metrics
 end
 
+"""
+`evaluate_patches(test_data, test_label, tstate, model, config, axis, angle)`
+
+Evaluates the model on rotated test data patches to assess robustness against geometric transformations. Returns a tuple of results and metrics.
+
+# Arguments
+- `test_data`: Test images.
+- `test_label`: Corresponding labels.
+- `tstate`: Model state with weights.
+- `model`: Trained model.
+- `config`: Settings for evaluation.
+- `axis`: Rotation axis.
+- `angle`: Rotation angle in degrees.
+"""
 function evaluate_patches(test_data, test_label, tstate, model, config, axis, angle)
     println("Evaluating patches...")
     results = []
@@ -44,7 +78,20 @@ function evaluate_patches(test_data, test_label, tstate, model, config, axis, an
     return results, test_metrics
 end
 
+"""
+`evaluate_patches(test_data, test_label, tstate, model, config, axis, angle)`
 
+Evaluates the model on rotated test data patches to assess robustness against geometric transformations. Returns a tuple of results and metrics.
+
+# Arguments
+- `test_data`: Test images.
+- `test_label`: Corresponding labels.
+- `tstate`: Model state with weights.
+- `model`: Trained model.
+- `config`: Settings for evaluation.
+- `axis`: Rotation axis.
+- `angle`: Rotation angle in degrees.
+"""
 function divide_into_patches_test(image::AbstractArray{T, 5}, patch_size::Tuple{Int, Int, Int}) where T
     println("Dividing image into patches...")
     println("Size of the image: ", size(image)) 
@@ -83,6 +130,17 @@ function divide_into_patches_test(image::AbstractArray{T, 5}, patch_size::Tuple{
     return patches, size(padded_image)
 end
 
+"""
+`recreate_image_from_patches_test(coords_with_patches, padded_size, patch_size, original_size)`
+
+Reassembles a full image from its patches, adjusting for any initial padding, and returns the image cropped to its original size.
+
+# Arguments
+- `coords_with_patches`: List of (coordinates, patch) tuples.
+- `padded_size`: Dimensions after padding.
+- `patch_size`: Patch dimensions.
+- `original_size`: Original image dimensions.
+"""
 function recreate_image_from_patches_test(
     coords_with_patches,
     padded_size,
@@ -116,6 +174,8 @@ function recreate_image_from_patches_test(
     return final_image
 end
 
+
+#TODO: rethink probably not needed in the new structure
 function process_results_test(results, test_metrics, config)
     println("Processing results...")
     for i in 1:length(results)

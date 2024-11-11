@@ -1,8 +1,39 @@
+"""
+`initialize_train_state(rng, model, optimizer)`
+
+Initializes the training state, which includes the random number generator, model, and optimizer.
+
+# Arguments
+- `rng`: The random number generator for reproducibility.
+- `model`: The machine learning model to be trained.
+- `optimizer`: The optimizer to be used in training.
+
+# Returns
+- The initialized training state encapsulating the RNG, model, and optimizer.
+"""
 function initialize_train_state(rng, model, optimizer)
     tstate = TrainState(rng, model, optimizer)
     return tstate
 end
 
+
+"""
+`check_early_stopping(current_metric, best_metric, config, counter)`
+
+Checks whether early stopping criteria are met based on improvement in the specified metric.
+
+# Arguments
+- `current_metric`: The current epoch's performance metric.
+- `best_metric`: The best performance metric observed so far.
+- `config`: Configuration dict containing early stopping parameters.
+- `counter`: The current count of epochs without significant improvement.
+
+# Returns
+- Updated best metric, counter, and a boolean indicating whether to stop training.
+
+# Description
+Updates the best metric if current performance is better; increments the patience counter otherwise. Stops training if improvements are not observed for a configured number of epochs.
+"""
 function check_early_stopping(current_metric, best_metric, config, counter)
     early_stopping_min_delta = config["model"]["early_stopping_min_delta"]
     if isempty(current_metric)
@@ -27,6 +58,29 @@ function check_early_stopping(current_metric, best_metric, config, counter)
     return best_metric, counter, false
 end
 
+
+"""
+`train_epoch(train_group_paths, validation_group_paths, h5, model, tstate, config, loss_function, num_classes, early_stopping_dict = nothing)`
+
+Conducts training and validation for one epoch, applying early stopping if configured.
+
+# Arguments
+- `train_group_paths`: Paths to training data groups.
+- `validation_group_paths`: Paths to validation data groups.
+- `h5`: HDF5 file handle for data access.
+- `model`: The model to be trained.
+- `tstate`: Current state of the training including model weights.
+- `config`: Training and model configuration settings.
+- `loss_function`: The loss function for evaluating training performance.
+- `num_classes`: Number of classes in the dataset.
+- `early_stopping_dict`: Dictionary containing early stopping information, if any.
+
+# Returns
+- Updated training state, optionally including updated early stopping information.
+
+# Description
+Performs training operations by processing batches of data, evaluating performance, and applying the optimizer. Optionally evaluates early stopping criteria based on validation loss or another configured metric.
+"""
 function train_epoch(tain_group_paths, validation_group_paths, h5, model, tstate, config, loss_function, num_classes, early_stopping_dict = nothing)
     train_metrics = []
     batch_size = config["data"]["batch_size"]

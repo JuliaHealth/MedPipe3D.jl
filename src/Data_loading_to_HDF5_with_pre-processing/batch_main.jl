@@ -1,18 +1,38 @@
-#TODO: te funkcjie powinny zostać rozdzielone na Loading i pre-procesing, wymagane jest wyseparowanie kodu z load_create_dataset_and_metadata
+"""
+`batch_main(main_folder::String, save_path::String, config_path::String=nothing, config_name::String="config.json")`
+
+Executes the main processing routine for batching and saving processed medical image and mask data.
+
+# Arguments
+- `main_folder`: The root directory containing patient data folders.
+- `save_path`: The path where processed data will be saved.
+- `config_path`: Optional path to an existing configuration JSON file. If not provided, a new one will be created.
+- `config_name`: Name for a newly created configuration file if `config_path` is not provided.
+
+# Returns
+- Function does not explicitly return unless it successfully completes processing and saving data,
+in which case it might return a confirmation or success message, depending on the implementation of `save_to_hdf5`.
+
+# Description
+The function first checks whether a configuration path is provided; if not, it creates a new configuration.
+It then identifies and segregates image and mask folders within the patient directories, processes them, and finally, calls another function to save the processed data.
+It ensures that both image and mask data are available for each patient, handling different channels and applying the configurations set forth in the JSON configuration file.
+
+# Errors
+Throws an error if the necessary image or mask directories are not found within the patient folders, or if any other critical step fails during processing.
+"""
+
 function batch_main(main_folder::String, save_path, config_path=nothing, config_name = "config.json")
-    if config_path === nothing
+    if config_path === nothing                                                  # Check if a specific configuration file path is provided, otherwise create a new configuration
         create_config_extended("test_data/zubik/saving_folder", config_name)
         config_path = "test_data/zubik/saving_folder/config.json"
     end
-    # Initialize lists to store image and mask folder paths
-    image_channel_folders = String[]
+    image_channel_folders = String[]                                            # Check if a specific configuration file path is provided, otherwise create a new configuration
     mask_channel_folders = String[]
-    # Iterate over patient folders
     patient_folders = readdir(main_folder)
-    for patient_folder in patient_folders
+    for patient_folder in patient_folders                                       # Search for subfolders named 'Images' and 'Masks' within each patient folder
         patient_path = joinpath(main_folder, patient_folder)
         if isdir(patient_path)
-            # Look for 'Images' and 'Masks' folders
             subfolders = readdir(patient_path)
             for subfolder in subfolders
                 subfolder_path = joinpath(patient_path, subfolder)
@@ -26,49 +46,82 @@ function batch_main(main_folder::String, save_path, config_path=nothing, config_
             end
         end
     end
-
-    # Check if we have both images and masks
-    if !isempty(image_channel_folders) && !isempty(mask_channel_folders)
+    #TODO: Change so that it is not 2 separate calls but 1 loop depending on the channel name
+    if !isempty(image_channel_folders) && !isempty(mask_channel_folders)       # Search for subfolders named 'Images' and 'Masks' within each patient folder
         # Process images
         println("Processing image and mask folders in: $main_folder")
         println("\nProcessing images.")
+        # Call functions to process images and save them
         images_batches, images_metadata, channel_names  = load_create_dataset_and_metadata(image_channel_folders, config_path, Linear_en, "image")
 
         # Process masks
         println("\nProcessing masks.")
+        # Call functions to process masks and  save them
         masks_batches, masks_metadata  = load_create_dataset_and_metadata(mask_channel_folders, config_path, Nearest_neighbour_en,"mask")
         
         return save_to_hdf5(images_batches, images_metadata, masks_batches, masks_metadata, save_path, channel_names)
-#TODO: pewnie nie działa - nie sprawdzane po dodaniu masek
-    elseif isempty(image_channel_folders) && !isempty(mask_channel_folders)
-        println("Processing images.")
-        images_batches, images_metadata = load_create_dataset_and_metadata(image_channel_folders, config_path, Linear_en, "image")
-        return images_batches, images_metadata
     else
         error("Could not find both image or mask folders per patient folder in the specified main folder.")
     end
 end
 
+
+"""
+`load_create_dataset_and_metadata(channel_paths::Vector{String}, config_path::String, interpolator::Interpolator_enum, channel_type::String)`
+
+Loads and processes medical image datasets from specified paths, applying configurations from a JSON file.
+
+# Arguments
+- `channel_paths`: A vector of directory paths containing the image or mask files.
+- `config_path`: Path to the JSON configuration file which includes processing parameters.
+- `interpolator`: An enum defining the type of interpolation to use during image resampling.
+- `channel_type`: Specifies the type of data being processed, e.g., 'image' or 'masks'.
+
+# Returns
+- `Tuple`: A tuple containing the final tensor of processed images, metadata for each image, and the names of the channels.
+
+# Description
+This function processes medical images or masks by loading settings from a configuration file.
+It handles different image channels, applies specified image processing steps like resampling, normalization, and standardization, and organizes images into a structured tensor format.
+Metadata is also gathered and structured for each image, facilitating further data management or analysis.
+
+# Errors
+Throws an error if there are any inconsistencies with the expected data inputs or processing parameters. Errors are also raised for file mismatches, configuration issues, or if the processing steps fail due to invalid data properties.
+"""
+
+#TODO: This function should be separated into Loading and pre-processing(resample_to_image, resample_to_spacing, crop_or_pad)
 function load_create_dataset_and_metadata(channel_paths::Vector{String}, config_path::String, interpolator::Interpolator_enum, channel_type::String)
-    # Load configuration
     println("Loading configuration from: $config_path")
-    config = JSON.parsefile(config_path)
-    channel_size = config["data"]["channel_size"]
+    config = JSON.parsefile(config_path)                                          # Load configuration settings from the specified JSON file
+    if channel_type == "image"                                                    # Determine channel size based on whether images or masks are being processed
+        channel_size = config["data"]["channel_size_imgs"]
+    elseif channel_type == "masks"
+        channel_size = config["data"]["channel_size_masks"]
+    else 
+        println("Images and masks are required.")
+    end
+#TODO: probably wrong or unnecessary
     batch_complete = config["data"]["batch_complete"]
+    # Extract other important parameters from configuration
     resample_images_to_target = config["data"]["resample_to_target"]
     resample_images_spacing = config["data"]["resample_to_spacing"]
     target_spacing = config["data"]["target_spacing"]
     resample_size = config["data"]["resample_size"]
     standardization = config["data"]["standardization"]
     normalization = config["data"]["normalization"]
+
+    # Optional JSON paths for splitting data and class mapping
     config["learning"]["Train_Val_Test_JSON"] != false ? dataset_splits = config["learning"]["Train_Val_Test_JSON"] : dataset_splits = false
     config["learning"]["class_JSON_path"] != false ? class_mapping = config["learning"]["class_JSON_path"] : class_mapping = false
+    
+    # Prepare to collect processed data and metadata
     channels_data = []
     all_metadata = []
     error_messages = []
     println("Processing $class_names.")
     channel_names = [basename(dirname(path)) for path in channel_paths]
-    # Processing each channel
+    
+    # Process each channel folder found in the given paths
     for channel_path in channel_paths
         channel_folder = basename(dirname(channel_path))
         println("Processing channel folder: $channel_folder")
@@ -158,13 +211,14 @@ function load_create_dataset_and_metadata(channel_paths::Vector{String}, config_
         channels_data = [[standardize_image(img) for img in channel] for channel in channels_data]
     end
 
+    # Adjust the dimensions of all images to the average or the stated dimension
     if resample_size == "avg"
         sizes = [size(img.voxel_data) for img in channels_data for img in img]  # Get sizes from all images
         avg_dim = map(mean, zip(sizes...))
         avg_dim = Tuple(Int(round(d)) for d in avg_dim)
         println("Resizing all $channel_type files to average dimension: $avg_dim")
         channels_data = [[crop_or_pad(img, avg_dim) for img in channel] for channel in channels_data]
-    elseif resample_size != "avg"
+    elseif resample_size != "avg" #TODO: change the wording, it is not readable
         target_dim = Tuple(resample_size)
         println("Resizing all $channel_type files to target dimension: $target_dim")
         channels_data = [[crop_or_pad(img, target_dim) for img in channel] for channel in channels_data]

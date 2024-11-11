@@ -1,3 +1,25 @@
+#TODO: BIG DEVELOPMENTS in channel handling
+"""
+`evaluate_validation(group_paths_val, h5, model, tstate, loss_function, config, num_classes)`
+
+Evaluates the model on validation data and calculates the average metrics and losses.
+
+# Arguments
+- `group_paths_val`: Paths to validation groups.
+- `h5`: HDF5 file handle.
+- `model`: Trained machine learning model.
+- `tstate`: Training state with optimizer settings.
+- `loss_function`: Function to calculate loss.
+- `config`: Configuration settings.
+- `num_classes`: Total number of classes including background.
+
+# Returns
+- Tuple of mean validation metrics and mean validation loss.
+
+# Description
+Processes each validation path, predicts labels, computes metrics and loss, and aggregates them to provide overall validation performance.
+"""
+
 function evaluate_validation(group_paths_val, h5, model, tstate, loss_function, config, num_classes)
     # Initialize dictionaries to store metrics and losses by class
     val_metrics = Dict(i => Float64[] for i in 0:num_classes-1)
@@ -32,7 +54,23 @@ function evaluate_validation(group_paths_val, h5, model, tstate, loss_function, 
     return mean_val_metrics, mean_val_loss
 end
 
+"""
+`evaluate_metric(y_pred, labels, metric_type, threshold=0.5)`
 
+Calculates evaluation metrics for predictions against true labels based on the specified metric type.
+
+# Arguments
+- `y_pred`: Predicted labels.
+- `labels`: True labels.
+- `metric_type`: Type of metric to calculate (e.g., 'dice', 'hausdorff').
+- `threshold`: Threshold for converting probabilities to binary labels, if applicable.
+
+# Returns
+- A dictionary of results for each class.
+
+# Description
+Converts predictions and true labels to binary format and calculates the specified metric. Currently supports 'dice' and 'hausdorff' metrics.
+"""
 function evaluate_metric(y_pred, labels, metric_type, threshold=0.5)
     # Convert to GPU arrays if not already
     class_idx = maximum(labels)
@@ -57,7 +95,7 @@ function evaluate_metric(y_pred, labels, metric_type, threshold=0.5)
     return results
 end
 
-
+#TODO: rethink if it is not dice
 function calculate_accuracy(y_pred, y_true)
     predictions = argmax(y_pred, dims=4)  # Zwraca indeksy maksymalnych wartości wzdłuż wymiaru klas
     true_classes = argmax(y_true, dims=4)  # Analogicznie dla prawdziwych etykiet
