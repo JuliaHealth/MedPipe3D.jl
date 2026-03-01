@@ -92,6 +92,7 @@ function evaluate_metric(y_pred, labels, metric_type, threshold=0.5)
         end
     
         results[class_idx] = result
+    end
     return results
 end
 
