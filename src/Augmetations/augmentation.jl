@@ -1,6 +1,4 @@
-include("./Utils.jl")
-include("./Spatial_metadata_change.jl")
-include("./Resample_to_target.jl")
+include("./utils.jl")
 using  Random, Statistics, CUDA, KernelAbstractions, Distributions
 
 """
@@ -22,15 +20,17 @@ Throws an error if the mode is neither "additive" nor "multiplicative".
 """
 function augment_brightness(image::Union{MedImage,Array{Float32, 3}}, value::Float64, mode::String)::Union{MedImage,Array{Float32, 3}}
     im = union_check_input(image)
-    # Apply augmentation, ignoring the minimum value
+    original_min = minimum(im)
+
     if mode == "additive"
-        im[im .!= original_min] .+= value  # Add value to each voxel except the minimum
+        im[im .!= original_min] .+= value
     elseif mode == "multiplicative"
-        im[im .!= original_min] .*= value  # Multiply each voxel except the minimum by value
+        im[im .!= original_min] .*= value
     else
         error("Invalid mode. Choose 'additive' or 'multiplicative'.")
     end
-    return union_check_output(image, im)  # Return the brightness-corrected image with the same type as the input.
+
+    return union_check_output(image, im)
 end
 
 
@@ -181,15 +181,13 @@ end
 # work in progress
 function elastic_deformation3d(image::Union{MedImage,Array{Float32, 3}}, strength::Float64, interpolator_enum)
     img = union_check_input(image)
-    
+
     deformed_img = similar(img)
 
-    # Inicjalizacja wektorów przesunięcia dla każdego punktu obrazu
     displacement_x = randn(size(img)...) * strength
     displacement_y = randn(size(img)...) * strength
     displacement_z = randn(size(img)...) * strength
 
-    # Wybór interpolatora
     if interpolator_enum == :Nearest_neighbour_en
         itp = interpolate(img, BSpline(Constant()))
     elseif interpolator_enum == :Linear_en
@@ -200,10 +198,22 @@ function elastic_deformation3d(image::Union{MedImage,Array{Float32, 3}}, strengt
         error("Nieznany typ interpolatora!")
     end
 
-    # Wywołanie kernela
-    kernel = elastic_deformation_kernel(CPU())(img, deformed_img, displacement_x, displacement_y, displacement_z, itp)
+    sx, sy, sz = size(img)
+    
+    event = elastic_deformation_kernel(CPU())(
+        img,
+        deformed_img,
+        displacement_x,
+        displacement_y,
+        displacement_z,
+        sx, sy, sz,
+        itp;
+        ndrange = size(img)
+    )
 
-    return union_check_output(image, im)
+    wait(event)
+
+    return union_check_output(image, deformed_img)
 end
 
 @kernel function elastic_deformation_kernel(img, deformed_img, displacement_x, displacement_y, displacement_z, size_x, size_y, size_z, itp)
@@ -275,9 +285,15 @@ function augment_gaussian_blur(image, sigma, shape, kernel_size, processing_unit
 
     # Apply the convolution using the appropriate backend and shape of the kernel.
     if shape == "2D"
-        kernel_event = padded_convolution_kernel(dev)(result, padded_im, kernel, pad_x, pad_y, ndrange = ndrange)
+        kernel_event = padded_convolution_kernel(dev)(
+    result, padded_im, kernel, pad_x, pad_y;
+    ndrange = ndrange
+)
     elseif shape == "3D"
-        kernel_event = padded_convolution_kernel_3D(dev)(result, padded_im, kernel, pad_x, pad_y, pad_z, ndrange = ndrange)
+        kernel_event = padded_convolution_kernel_3D(dev)(
+    result, padded_im, kernel, pad_x, pad_y, pad_z;
+    ndrange = ndrange
+)
     end    
     result = Array(result)  # Convert the result to an array if needed.
 
@@ -288,7 +304,7 @@ function augment_gaussian_blur(image, sigma, shape, kernel_size, processing_unit
         final_result = result[1:end-(pad_x*2), 1:end-(pad_x*2), 1:end-(pad_x*2)]
     end
     # Return the blurred image with the same type as the input.
-    return union_check_output(image, im)
+    return union_check_output(image, final_result)
 end
 
 """
@@ -392,11 +408,11 @@ Kernel function for `augment_gaussian_blur`.
 end
 
 # work in progress, this feature do not work in pipline
-function augment_simulate_low_resolution(image::Union{MedImage,Array{Float32, 3}}, blur_sigma::Float64, kernel_size::Int, downsample_scale::Float64)
-    #im = union_check(image)
-    blurred_voxel_data = augment_gaussian_blur(image, blur_sigma, kernel_size)
-    image_downsampled = augment_scaling(blurred_voxel_data, downsample_scale)
-    image_upsampled = augment_scaling(image_downsampled, 1/downsample_scale)
+# function augment_simulate_low_resolution(image::Union{MedImage,Array{Float32, 3}}, blur_sigma::Float64, kernel_size::Int, downsample_scale::Float64)
+#     #im = union_check(image)
+#     blurred_voxel_data = augment_gaussian_blur(image, blur_sigma, kernel_size)
+#     image_downsampled = augment_scaling(blurred_voxel_data, downsample_scale)
+#     image_upsampled = augment_scaling(image_downsampled, 1/downsample_scale)
 
-    return image_upsampled
-end
+#     return image_upsampled
+# end
