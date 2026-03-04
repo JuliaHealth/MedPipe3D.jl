@@ -1,11 +1,11 @@
-#TODO: requires the addition of probabilistic augmentations
+using Random
 """
 `apply_augmentations(images, config_path::String)`
 
 A helper function for applying image augmentations as specified in a configuration file.
 
 # Arguments
-- `images`: A multidimensional array representing batches of images.
+- `images`: A multidimensional (5-dim) array representing batches of images, of type => [HEIGHT, WIDTH, DEPTH, CHANNELS, BATCHES].
 - `config_path`: The path to the JSON configuration file specifying augmentation types and their parameters.
 
 # Returns
@@ -19,14 +19,20 @@ function apply_augmentations(images, config_path::String)
     config = JSON.parsefile(config_path)
     aug_config = config["augmentations"]
     order = config["order"]
+    prob_augs = get(config, "probabilistic_augmentations", Dict())
 
     # Apply each augmentation in the specified order
-    for b in 1:size(images, 5)  # Loop over each batch
-        for c in 1:size(images, 4)  # Loop over each channel in the batch
-            for aug in order  # Apply each augmentation in the specified order
-                params = aug_config[aug]
-                # Apply the augmentation to each slice individually
-                images[:, :, :, c, b] = apply_augmentation(Array(images[:, :, :, c, b]), aug, params)
+    for b in axes(images, 5)  # Loop over each batch
+        for aug in order  # Apply each augmentation in the specified order
+            p = get(prob_augs, aug, 1.0)
+            rand_num = rand()
+            # Apply the augmentation to each slice individually => [H,W,D,C,B]
+            if rand_num < p
+                for c in axes(images, 4)  # Loop over each channel in the batch
+                    params = aug_config[aug]
+                    img_view = view(images, :, :, :, c, b)
+                    images[:, :, :, c, b] = apply_augmentation(img_view, aug, params)
+                end
             end
         end
     end
