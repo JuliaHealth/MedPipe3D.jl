@@ -1,4 +1,3 @@
-#TODO: requires the addition of probabilistic augmentations
 """
 `apply_augmentations(images, config_path::String)`
 
@@ -13,20 +12,25 @@ A helper function for applying image augmentations as specified in a configurati
 
 # Description
 Loads augmentation settings from a configuration file and applies each augmentation in the order specified to each image slice in the dataset.
+Each augmentation is applied with probability p_rand from the configuration.
 """
 function apply_augmentations(images, config_path::String)
     # Load the configuration
     config = JSON.parsefile(config_path)
-    aug_config = config["augmentations"]
-    order = config["order"]
+    aug_config = config["augmentation"]["augmentations"]
+    order = config["augmentation"]["order"]
+    p_rand = get(config["augmentation"], "p_rand", 0.5)
 
-    # Apply each augmentation in the specified order
-    for b in 1:size(images, 5)  # Loop over each batch
-        for c in 1:size(images, 4)  # Loop over each channel in the batch
+    # Apply each augmentation in the specified order with probability p_rand
+    for b in axes(images, 5)  # Loop over each batch
+        for c in axes(images, 4)  # Loop over each channel in the batch
             for aug in order  # Apply each augmentation in the specified order
-                params = aug_config[aug]
-                # Apply the augmentation to each slice individually
-                images[:, :, :, c, b] = apply_augmentation(Array(images[:, :, :, c, b]), aug, params)
+                # Apply augmentation with probability p_rand
+                if rand() < p_rand
+                    params = aug_config[aug]
+                    # Apply the augmentation to each slice individually
+                    images[:, :, :, c, b] = apply_augmentation(Array(images[:, :, :, c, b]), aug, params)
+                end
             end
         end
     end
@@ -62,14 +66,23 @@ function apply_augmentation(image, augmentation, params)
     elseif augmentation == "Rician noise transform"
         return augment_rician_noise(image, params["variance"])
     elseif augmentation == "Mirror transform"
-        return augment_mirror(image, parse(Tuple{Int,Int,Int}, params["axes"]))
+        # Handle axes parameter - it might be a string or tuple
+        axes_param = params["axes"]
+        if axes_param isa String
+            axes_tuple = eval(Meta.parse(axes_param))
+        else
+            axes_tuple = axes_param
+        end
+        return augment_mirror(image, axes_tuple)
     elseif augmentation == "Scale transform"
-        return augment_scaling(image, params["interpolator_enum"])
+        return augment_scaling(image, params["scale_factor"], Symbol(params["interpolator_enum"]))
     elseif augmentation == "Gaussian blur transform"
-        return augment_gaussian_blur(image, params["sigma"], params["kernel_size"], params["shape"])
+        return augment_gaussian_blur(image, params["sigma"], params["shape"], params["kernel_size"], params["processing_unit"])
     elseif augmentation == "Simulate low-resolution transform"
         return augment_simulate_low_resolution(image, params["blur_sigma"], params["kernel_size"], params["downsample_scale"])
     elseif augmentation == "Elastic deformation transform"
-        return elastic_deformation3d(image, params["strength"], params["interpolator_enum"])
+        return elastic_deformation3d(image, params["strength"], Symbol(params["interpolator_enum"]))
+    else
+        error("Unknown augmentation: $augmentation")
     end
 end
