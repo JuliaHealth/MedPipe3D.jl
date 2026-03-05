@@ -1,15 +1,11 @@
-#TODO: change the structure of the parameters 
-#TODO: rethink the use of the batch complement in the entire pipeline
-#TODO: requires parameter for probabilistic augmentations
-
 """
-`create_config_extended(save_path::String, config_name="config.jl")::String`
+`create_config_extended(save_path::String, config_name="config.json")::String`
 
 Generates a comprehensive configuration file for a medical image segmentation pipeline in JSON format, allowing extensive customization of data processing, augmentation, and model training parameters.
 
 # Arguments
 - `save_path`: The directory path where the configuration file will be saved.
-- `config_name`: The name of the configuration file to be saved, defaulting to "config.jl".
+- `config_name`: The name of the configuration file to be saved, defaulting to "config.json".
 
 # Returns
 - `String`: The path to the saved configuration file.
@@ -23,10 +19,8 @@ After gathering all inputs, it compiles them into a structured dictionary, conve
 # Errors
 Throws an error if file saving fails or if user input is incorrectly formatted for expected data types.
 """
-function create_config_extended(save_path::String, config_name="config.jl")
+function create_config_extended(save_path::String, config_name="config.json")
     config = Dict()
-    # I'm sorry for shity design patterns, I know its terribly stiff and unreadable
-# Data Parameters
     println("Enter data parameters:")
 
 
@@ -34,7 +28,7 @@ function create_config_extended(save_path::String, config_name="config.jl")
     channel_size_imgs_input = readline()
     channel_size_imgs = isempty(channel_size_imgs_input) ? 4 : parse(Int, channel_size_imgs_input)
 
-    println("Enter the channel size for maks [default: 4]:")
+    println("Enter the channel size for masks [default: 4]:")
     channel_size_masks_input = readline()
     channel_size_masks = isempty(channel_size_masks_input) ? 4 : parse(Int, channel_size_masks_input)
 
@@ -61,9 +55,12 @@ function create_config_extended(save_path::String, config_name="config.jl")
         target_spacing = nothing
     end
 
-    println("Should the images be resize using average per channel or do you want to specify the size for all images? (avg/(x,y,z)): [default: avr]")
+    println("Should the images be resize using average per channel or do you want to specify the size for all images? (avg/(x,y,z)): [default: avg]")
     resample_size_input = readline()
-    resample_size = isempty(resample_size_input) ? "avg" : string_to_tuple(resample_size_input)
+    resample_size =
+    isempty(resample_size_input) || resample_size_input == "avg" ?
+    "avg" :
+    string_to_tuple(resample_size_input)
     
 
     println("Standardization? (true/false): [default: false]")
@@ -110,7 +107,10 @@ function create_config_extended(save_path::String, config_name="config.jl")
         selected_indices = []
         selected_order = []
     else
-        selected_indices = parse.(Int, split(selected_indices_input, ","))
+        # selected_indices = parse.(Int, split(selected_indices_input, ","))
+        # selected_order = [augmentations[i] for i in selected_indices]
+        parsed_indices = parse.(Int, split(selected_indices_input, ","))
+        selected_indices = filter(i -> 1 ≤ i ≤ length(augmentations), parsed_indices)
         selected_order = [augmentations[i] for i in selected_indices]
         
     end    
@@ -163,9 +163,9 @@ function create_config_extended(save_path::String, config_name="config.jl")
             aug_config["variance"] = variance
 
         elseif aug_name == "Mirror transform"
-            println("Enter axes to mirror (e.g., (1,2,3)) [default: (1,2,3)]:")
+            println("Enter axes to mirror (e.g., 1,2,3) [default: 1,2,3]:")
             axes_input = readline()
-            axes = isempty(axes_input) ? (1,2,3) : eval(Meta.parse(axes_input))
+            axes = isempty(axes_input) ? (1,2,3) : Tuple(parse.(Int, split(axes_input, ",")))
 
             aug_config["axes"] = axes
 
@@ -234,26 +234,23 @@ function create_config_extended(save_path::String, config_name="config.jl")
 
         end
 
+        println("Enter probability of applying $aug_name (p_rand) [default: 0.5]:")
+        p_rand_input = readline()
+        aug_config["p_rand"] = isempty(p_rand_input) ? 0.5 : parse(Float32, p_rand_input)
+
         aug_params[aug_name] = aug_config
     end
-    
-# Collect p_rand and processing_unit
-    println("Enter the probability of applying each augmentation (p_rand) [default: 0.5]:")
-    p_rand_input = readline()
-    p_rand = isempty(p_rand_input) ? 0.5 : parse(Float32, p_rand_input)
 
-    println("Enter the processing unit (GPU/CPU) [default: GPU]:")
+    # After loop - collect processing unit
+    println("Enter the processing unit (GPU/CPU) [default: CPU]:")
     processing_unit_input = readline()
-    processing_unit = isempty(processing_unit_input) ? "GPU" : processing_unit_input
+    processing_unit = isempty(processing_unit_input) ? "CPU" : processing_unit_input
 
     augmentation_params = Dict(
         "order" => selected_order,
-        "p_rand" => p_rand,
         "augmentations" => aug_params,
         "processing_unit" => processing_unit
     )
-
-# Additional Pipeline Characteristics
 
     # Initialize variables to avoid UndefVarError
     Train_Val_Test_JSON = false
@@ -261,7 +258,7 @@ function create_config_extended(save_path::String, config_name="config.jl")
     additional_JSON_path = false
     n_folds = 1
     n_lcc = nothing
-    println("What metric for evaluation? (true/false): [default: dice]")
+    println("What metric for evaluation? (dice/iou/etc): [default: dice]")
     metric_input = readline()
     metric = isempty(metric_input) ? "dice" : metric_input
 
@@ -285,8 +282,8 @@ function create_config_extended(save_path::String, config_name="config.jl")
 
     println("Use probabilistic oversampling with patch data loading? (true/false): [default: false]")
     patch_probabilistic_oversampling_input = readline()
-    patch_probabilistic_oversampling = isempty(patch_probabilistic_oversampling_input) ? false : patch_probabilistic_oversampling_input
-    
+    patch_probabilistic_oversampling = isempty(patch_probabilistic_oversampling_input) ? false : parse(Bool, patch_probabilistic_oversampling_input)
+
     patch_size = nothing
     oversampling_probability = nothing
     if patch_probabilistic_oversampling == true
@@ -296,12 +293,13 @@ function create_config_extended(save_path::String, config_name="config.jl")
         
         println("Set the oversampling probability from 0, indicating completely random patches, to 1, where each patch will contain relevant information. : [default: 0.5]")
         oversampling_probability_input = readline()
-        oversampling_probability = isempty(oversampling_probability_input) ? 0.5 : string_to_tuple(oversampling_probability_input)
+        oversampling_probability = isempty(oversampling_probability_input) ? 0.5 : parse(Float32, oversampling_probability_input)
     end
 
 
     println("Do you have specific collections in JSON: train, validation, test (false/path): [default: false]")
     is_test_train_validation_collections_input = readline()
+    test_train_validation = nothing
     is_test_train_validation_collections = isempty(is_test_train_validation_collections_input) ? false : parse(Bool, is_test_train_validation_collections_input)
     if is_test_train_validation_collections
         println("Enter path to JSON for Traing, Validation and Test data")
@@ -310,7 +308,7 @@ function create_config_extended(save_path::String, config_name="config.jl")
     else
         println("Set test% train% validation% (e.g., 0.6, 0.2, 0.2): [default: 0.6, 0.2, 0.2]")
         test_train_validation_input = readline()
-        test_train_validation = isempty(test_train_validation_input) ? (0.6, 0.2, 0.2) : test_train_validation_input
+        test_train_validation = isempty(test_train_validation_input) ? (0.6, 0.2, 0.2) : string_to_tuple(test_train_validation_input)
     end
 
     println("Do you have specific class collections (false/path): [default: false]")
@@ -332,11 +330,11 @@ function create_config_extended(save_path::String, config_name="config.jl")
 
     println("Do you have additional JSONs files (false/path): [default: false]")
     additional_JSON_input = readline()
-    additional_JSON = isempty(additional_JSON_input) ? false : parse(Bool, additional_JSON_input)
-    if additional_JSON
-        println("Enter path to JSON for additional data")
-        additional_JSON_path_input = readline()
-        additional_JSON_path = isempty(additional_JSON_path_input) ? false : additional_JSON_path_input
+    if isempty(additional_JSON_input) || additional_JSON_input == "false"
+    additional_JSON = false
+    else
+        additional_JSON = true
+        additional_JSON_path = additional_JSON_input
     end
     
     learning_params = Dict(
@@ -388,10 +386,11 @@ function create_config_extended(save_path::String, config_name="config.jl")
         patience = isempty(patience_input) ? 5 : parse(Int, patience_input)
         println("Enter min. delta for early stopping: [default: 0.001]")
         early_stopping_min_delta_input = readline()
-        early_stopping_min_delta = isempty(early_stopping_min_delta_input) ? 0.001 : parse(Int, early_stopping_min_delta_input)
+        early_stopping_min_delta = isempty(early_stopping_min_delta_input) ? 0.001 : parse(Float64, early_stopping_min_delta_input)
         println("Enter metric for early stopping: [default: val_loss]")
         early_stopping_metric_input = readline()
-        early_stopping_metric = isempty(early_stopping_metric_input) ? val_loss : parse(Int, early_stopping_metric_input)
+        early_stopping_metric = isempty(early_stopping_metric_input) ? "val_loss" : early_stopping_metric_input
+
     else
         patience = nothing
         early_stopping_min_delta = nothing
@@ -447,9 +446,15 @@ This function navigates through the nested configuration dictionary to a specifi
 # Errors
 Prints error messages directly to the console if the specified path is incorrect, the action is invalid, or required values for actions are not provided. 
 """
-#TODO: rethink if needed
+
 function modify_config(config::Dict{String, Any}, action::Symbol, path::Vector{String}, value=nothing)
     current = config
+
+    if isempty(path)
+        println("Error: path cannot be empty.")
+        return config
+    end
+
     for i in 1:length(path)-1
         key = path[i]
         if !haskey(current, key)
