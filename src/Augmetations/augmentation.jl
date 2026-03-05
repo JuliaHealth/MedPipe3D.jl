@@ -31,7 +31,8 @@ function augment_brightness(image::Union{MedImage,Array{Float32, 3}}, value::Flo
     else
         error("Invalid mode. Choose 'additive' or 'multiplicative'.")
     end
-    return union_check_output(image, im)  # Return the brightness-corrected image with the same type as the input.
+
+    return union_check_output(image, im)
 end
 
 
@@ -186,7 +187,7 @@ end
 
 function elastic_deformation3d(image::Union{MedImage,Array{Float32, 3}}, strength::Float64, interpolator_enum)
     img = union_check_input(image)
-    
+
     deformed_img = similar(img)
 
     # Initialize displacement vectors for each image point
@@ -285,9 +286,15 @@ function augment_gaussian_blur(image, sigma, shape, kernel_size, processing_unit
 
     # Apply the convolution using the appropriate backend and shape of the kernel.
     if shape == "2D"
-        kernel_event = padded_convolution_kernel(dev)(result, padded_im, kernel, pad_x, pad_y, ndrange = ndrange)
+        kernel_event = padded_convolution_kernel(dev)(
+    result, padded_im, kernel, pad_x, pad_y;
+    ndrange = ndrange
+)
     elseif shape == "3D"
-        kernel_event = padded_convolution_kernel_3D(dev)(result, padded_im, kernel, pad_x, pad_y, pad_z, ndrange = ndrange)
+        kernel_event = padded_convolution_kernel_3D(dev)(
+    result, padded_im, kernel, pad_x, pad_y, pad_z;
+    ndrange = ndrange
+)
     end    
     result = Array(result)  # Convert the result to an array if needed.
 

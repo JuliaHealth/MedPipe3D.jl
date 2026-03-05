@@ -1,10 +1,12 @@
+using JSON, Random
+
 """
 `apply_augmentations(images, config_path::String)`
 
 A helper function for applying image augmentations as specified in a configuration file.
 
 # Arguments
-- `images`: A multidimensional array representing batches of images.
+- `images`: A multidimensional (5-dim) array representing batches of images, of type => [HEIGHT, WIDTH, DEPTH, CHANNELS, BATCHES].
 - `config_path`: The path to the JSON configuration file specifying augmentation types and their parameters.
 
 # Returns

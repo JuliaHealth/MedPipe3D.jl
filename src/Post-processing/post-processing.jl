@@ -14,22 +14,26 @@ A helper function designed to identify the largest connected components within a
 This function utilizes GPU kernels to label connected components in the input mask, iteratively propagating labels to consolidate component identifiers.
 After processing on the GPU, it analyzes component sizes on the CPU, returning masks for the largest components specified by `n_lcc`.
 """
+
 function largest_connected_components(mask::Array{Int32, 3}, n_lcc::Int)
     width, height, depth = size(mask)
     mask_gpu = CuArray(mask)
     labels_gpu = CUDA.fill(0, size(mask))
+    labels_next_gpu = CUDA.fill(0, size(mask))
     dev = get_backend(labels_gpu)
     ndrange = (width, height, depth)
-    workgroupsize = (3, 3, 3)
 
     # Initialize labels
-    initialize_labels_kernel(dev)(mask_gpu, labels_gpu, width, height, depth, ndrange = ndrange)
+    event = initialize_labels_kernel(dev)(mask_gpu, labels_gpu, width, height, depth; ndrange = ndrange)
+    wait(event)
     CUDA.synchronize()
 
     # Propagate labels iteratively
-    for _ in 1:10 
-        propagate_labels_kernel(dev, workgroupsize)(mask_gpu, labels_gpu, width, height, depth, ndrange = ndrange)
+    for _ in 1:max(width, height, depth)
+        event = propagate_labels_kernel(dev)(mask_gpu, labels_gpu, labels_next_gpu, width, height, depth; ndrange = ndrange)
+        wait(event)
         CUDA.synchronize()
+        labels_gpu, labels_next_gpu = labels_next_gpu, labels_gpu
     end
 
     # Download labels back to CPU
@@ -81,32 +85,42 @@ Propagates labels across neighbors in a 3D mask to identify connected components
 This kernel iteratively updates labels based on the connectivity of neighboring voxels within the mask.
 It aims to consolidate labels across connected voxels, helping to unify parts of the same component under a single label.
 """
-@kernel function propagate_labels_kernel(mask, labels, width, height, depth)
-    idx= @index(Global, Cartesian)
+@kernel function propagate_labels_kernel(mask, labels, labels_next, width, height, depth)
+    idx = @index(Global, Cartesian)
     i = idx[1]
     j = idx[2]
     k = idx[3]
 
     if i >= 1 && i <= width && j >= 1 && j <= height && k >= 1 && k <= depth
         if mask[i, j, k] == 1
-            current_label = labels[i, j, k]
+            min_label = labels[i, j, k]
+
             for di in -1:1
                 for dj in -1:1
                     for dk in -1:1
                         if di == 0 && dj == 0 && dk == 0
                             continue
                         end
+
                         ni = i + di
                         nj = j + dj
                         nk = k + dk
+
                         if ni >= 1 && ni <= width && nj >= 1 && nj <= height && nk >= 1 && nk <= depth
-                            if mask[ni, nj, nk] == 1 && labels[ni, nj, nk] < current_label
-                                labels[i, j, k] = labels[ni, nj, nk]
+                            if mask[ni, nj, nk] == 1
+                                neighbor_label = labels[ni, nj, nk]
+                                if neighbor_label < min_label
+                                    min_label = neighbor_label
+                                end
                             end
                         end
                     end
                 end
             end
+
+            labels_next[i, j, k] = min_label
+        else
+            labels_next[i, j, k] = 0
         end
     end
 end
