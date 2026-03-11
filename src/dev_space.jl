@@ -78,7 +78,8 @@ function test_early_stopping_integration()
         loss_function = get_loss_function(config["model"]["loss_function_name"])
         num_epochs = config["model"]["num_epochs"]
 
-        tstate = initialize_train_state(rng, model, optimizer)
+        use_gpu = (config["augmentation"]["processing_unit"] == "GPU")
+        tstate = initialize_train_state(rng, model, optimizer; use_gpu=use_gpu)
 
         group_paths_train = indices_dict["train"]
         group_paths_val = indices_dict["validation"]
@@ -103,7 +104,8 @@ function test_evaluate_validation()
         model = create_segmentation_model(num_classes, size(read(h5[indices_dict["train"][1] * "/images/data"]), 4))
         optimizer = get_optimiser(config["model"]["optimizer_name"])
         loss_function = get_loss_function(config["model"]["loss_function_name"])
-        tstate = initialize_train_state(rng, model, optimizer)
+        use_gpu = (config["augmentation"]["processing_unit"] == "GPU")
+        tstate = initialize_train_state(rng, model, optimizer; use_gpu=use_gpu)
 
         println("Running validation test...")
         evaluate_validation(indices_dict["validation"], h5, model, tstate, config, loss_function, num_classes)
@@ -168,7 +170,8 @@ function main_loop_test_1(hdf5_path, config_path, rng_seed)
         loss_function = get_loss_function(config["model"]["loss_function_name"])
         num_epochs = config["model"]["num_epochs"]
 
-        tstate = initialize_train_state(rng, model, optimizer)
+        use_gpu = (config["augmentation"]["processing_unit"] == "GPU")
+        tstate = initialize_train_state(rng, model, optimizer; use_gpu=use_gpu)
 
         final_tstate = epoch_loop(num_epochs, train_groups, validation_groups, h5, model, tstate, config, loss_function, num_classes)
         close(h5)

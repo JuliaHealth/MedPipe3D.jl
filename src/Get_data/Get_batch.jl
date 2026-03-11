@@ -344,17 +344,19 @@ function get_centered_patch(image, label, center, patch_size)
     pad_beg = Tuple(round.(Int, pad_beg))
     pad_end = Tuple(round.(Int, pad_end))
 
-    # Pad the image and label using pad_mi
-    image_padded = pad_mi(image, pad_beg, pad_end, 0)
-    label_padded = pad_mi(label, pad_beg, pad_end, 0)
+    # Pad the image and label using MedImages pad_mi
+    image_mi = medimage_from_array(image)
+    label_mi = medimage_from_array(label)
+    image_padded = pad_mi(image_mi, pad_beg, pad_end, 0, Nearest_neighbour_en)
+    label_padded = pad_mi(label_mi, pad_beg, pad_end, 0, Nearest_neighbour_en)
 
     # Extract the patch
-    image_patch = image_padded[
+    image_patch = image_padded.voxel_data[
         start_indices_adj[1]:end_indices_adj[1],
         start_indices_adj[2]:end_indices_adj[2],
         start_indices_adj[3]:end_indices_adj[3]
     ]
-    label_patch = label_padded[
+    label_patch = label_padded.voxel_data[
         start_indices_adj[1]:end_indices_adj[1],
         start_indices_adj[2]:end_indices_adj[2],
         start_indices_adj[3]:end_indices_adj[3]
@@ -378,9 +380,11 @@ function get_random_patch(image, label, patch_size)
     if any(patch_size .> size(image))
         # Calculate the needed size to fit the patch
         needed_size = map(max, size(image), patch_size)
-        # Use crop_or_pad to ensure the image and label are at least as large as needed_size
-        image = crop_or_pad(image, needed_size)
-        label = crop_or_pad(label, needed_size)
+        # Use MedImage-based crop_or_pad to ensure the image and label are at least as large as needed_size
+        image_mi = medimage_from_array(image)
+        label_mi = medimage_from_array(label)
+        image = crop_or_pad(image_mi, needed_size; interpolator=Nearest_neighbour_en, pad_val=0).voxel_data
+        label = crop_or_pad(label_mi, needed_size; interpolator=Nearest_neighbour_en, pad_val=0).voxel_data
     end
 
     # Calculate random start indices within the new allowable range

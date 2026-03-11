@@ -92,6 +92,18 @@ Evaluates the model on rotated test data patches to assess robustness against ge
 - `axis`: Rotation axis.
 - `angle`: Rotation angle in degrees.
 """
+function pad_spatial_5d_with_medimage(image::AbstractArray{T, 5}, target_size::Tuple{Int, Int, Int}) where T
+    out = Array{T}(undef, target_size[1], target_size[2], target_size[3], size(image, 4), size(image, 5))
+    for n in 1:size(image, 5)
+        for c in 1:size(image, 4)
+            mi = medimage_from_array(view(image, :, :, :, c, n))
+            padded = crop_or_pad(mi, target_size; interpolator=Nearest_neighbour_en, pad_val=0).voxel_data
+            out[:, :, :, c, n] = padded
+        end
+    end
+    return out
+end
+
 function divide_into_patches_test(image::AbstractArray{T, 5}, patch_size::Tuple{Int, Int, Int}) where T
     println("Dividing image into patches...")
     println("Size of the image: ", size(image)) 
@@ -106,7 +118,8 @@ function divide_into_patches_test(image::AbstractArray{T, 5}, patch_size::Tuple{
     # Pad the image if necessary
     padded_image = image
     if any(pad_size .> 0)
-        padded_image = crop_or_pad(image, (size(image, 1) + pad_size[1], size(image, 2) + pad_size[2], size(image, 3) + pad_size[3]))
+        target_size = (size(image, 1) + pad_size[1], size(image, 2) + pad_size[2], size(image, 3) + pad_size[3])
+        padded_image = pad_spatial_5d_with_medimage(image, target_size)
     end
 
     # Extract patches

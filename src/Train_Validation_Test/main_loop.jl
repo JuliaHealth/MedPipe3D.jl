@@ -42,7 +42,8 @@ function main_loop(hdf5_path, config_path, rng_seed, loss_function_custom = noth
         end
         num_epochs = config["model"]["num_epochs"]
 
-        tstate = initialize_train_state(rng, model, optimizer)
+        use_gpu = (config["augmentation"]["processing_unit"] == "GPU")
+        tstate = initialize_train_state(rng, model, optimizer; use_gpu=use_gpu)
         #TODO: add already tested apply.jl (requires the addition of probabilistic augmentation)
         if config["learning"]["n_cross_val"]
             n_folds = config["learning"]["n_folds"]
@@ -53,7 +54,7 @@ function main_loop(hdf5_path, config_path, rng_seed, loss_function_custom = noth
                 println("Starting fold $fold/$n_folds")
                 train_groups, validation_groups = k_fold_split(shuffled_indices, n_folds, fold, rng)
                 
-                tstate = initialize_train_state(rng, model, optimizer)
+                tstate = initialize_train_state(rng, model, optimizer; use_gpu=use_gpu)
                 final_tstate = epoch_loop(num_epochs, train_groups, validation_groups, h5, model, tstate, config, loss_function, num_classes)
                 
                 push!(all_tstate, final_tstate)
@@ -118,4 +119,3 @@ function epoch_loop(num_epochs, group_paths_train, group_paths_val, h5, model, t
     end
     return tstate
 end
-

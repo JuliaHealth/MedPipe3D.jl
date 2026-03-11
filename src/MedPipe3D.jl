@@ -17,6 +17,9 @@ include("Get_data/Get_batch.jl")
 # Training components
 include("Train_Validation_Test/get_loss_function.jl")
 include("Train_Validation_Test/get_optimiser.jl")
+include("Train_Validation_Test/model.jl")
+include("Train_Validation_Test/training_utils.jl")
+include("Train_Validation_Test/splits.jl")
 include("Train_Validation_Test/validation.jl")
 include("Train_Validation_Test/train.jl")
 include("Train_Validation_Test/test.jl")
@@ -39,4 +42,3 @@ include("Batching_channeling/batching_channeling.jl")
 export main_loop, create_config_extended, batch_main, print_hdf5_contents
 
 end # module MedPipe3D
-

@@ -11,8 +11,13 @@ Initializes the training state, which includes the random number generator, mode
 # Returns
 - The initialized training state encapsulating the RNG, model, and optimizer.
 """
-function initialize_train_state(rng, model, optimizer)
-    tstate = TrainState(rng, model, optimizer)
+function initialize_train_state(rng, model, optimizer; use_gpu::Bool=false)
+    ps, st = Lux.setup(rng, model)
+    if use_gpu && CUDA.functional()
+        dev = MLDataDevices.CUDADevice()
+        ps, st = (ps, st) |> dev
+    end
+    tstate = Lux.Training.TrainState(model, ps, st, optimizer)
     return tstate
 end
 
@@ -98,7 +103,7 @@ function train_epoch(tain_group_paths, validation_group_paths, h5, model, tstate
     for batch_idx in 1:num_batches
         batch_paths = tain_group_paths[(batch_idx - 1) * batch_size + 1:min(batch_idx * batch_size, length(tain_group_paths))]
         data, labels, unique_classes = fetch_and_preprocess_data(batch_paths, h5, config)
-        _, loss, _, tstate = Lux.Training.single_train_step!(Lux.Experimental.ADTypes.AutoZygote(), loss_function, (data, labels), tstate)
+        _, loss, _, tstate = single_train_step!(ADTypes.AutoZygote(), loss_function, (data, labels), tstate)
         y_pred, _ = infer_model(tstate, model, data)      
         push!(train_metrics, loss)
         println("Batch $batch_idx, Traing loss: $loss")
