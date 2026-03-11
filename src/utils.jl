@@ -1,3 +1,5 @@
+using MedImages
+
 #region configuration 
 function string_to_tuple(str::String)
     str_clean = replace(str, '(' => "", ')' => "")
@@ -7,13 +9,37 @@ function string_to_tuple(str::String)
 end
 #endregion
 
-#region batch creation
-function crop_or_pad(img, target_size::Tuple)
-    if isa(img, MedImage)
-        current_size = size(img.voxel_data)
-    else
-        current_size = size(img)
+#region hdf5 helpers
+function group_exists(h5::Union{HDF5.File, HDF5.Group}, path::AbstractString)
+    try
+        obj = h5[path]
+        return isa(obj, HDF5.Group)
+    catch
+        return false
     end
+end
+
+function safe_read_attribute(obj, name::AbstractString; default = nothing)
+    try
+        if haskey(attrs(obj), name)
+            return read_attribute(obj, name)
+        else
+            return default
+        end
+    catch
+        return default
+    end
+end
+#endregion
+
+#region batch creation
+function crop_or_pad(
+    img::MedImage,
+    target_size::Tuple;
+    interpolator::Interpolator_enum=MedImages.Nearest_neighbour_en,
+    pad_val=0
+)
+    current_size = size(img.voxel_data)
     #println("Current image size: ", current_size)
     #println("Target size: ", target_size)
 
@@ -28,15 +54,10 @@ function crop_or_pad(img, target_size::Tuple)
     # Calculate crop and pad sizes for each dimension
     crop_beg = Tuple(max(0, floor(Int, size_diff[i] / 2)) + 1 for i in 1:length(size_diff))
     crop_size = Tuple(min(current_size[i], target_size[i]) for i in 1:length(size_diff))
-    cropped_img = crop_mi(img, crop_beg, crop_size)
+    cropped_img = crop_mi(img, crop_beg, crop_size, interpolator)
     # Calculate padding needed after cropping
-    if isa(img, MedImage)
-        #println("size:", size(cropped_img.voxel_data), "current_size:", current_size)
-        after_crop_size = size(cropped_img.voxel_data)
-    else
-        #println("size:", size(cropped_img.voxel_data), "current_size:", current_size)
-        after_crop_size = size(cropped_img)
-    end
+    #println("size:", size(cropped_img.voxel_data), "current_size:", current_size)
+    after_crop_size = size(cropped_img.voxel_data)
     
     pad_size_diff = map((a, b) -> b - a, after_crop_size, target_size)
     pad_beg = Tuple(max(0, floor(Int, pad_size_diff[i] / 2)) for i in 1:length(pad_size_diff))
@@ -45,11 +66,31 @@ function crop_or_pad(img, target_size::Tuple)
     # Apply padding if needed
     if any(x -> x != 0, pad_size_diff)
         #println("Padding required: begin ", pad_beg, ", end ", pad_end)
-        padded_img = pad_mi(cropped_img, pad_beg, pad_end, 0)
+        padded_img = pad_mi(cropped_img, pad_beg, pad_end, pad_val, interpolator)
         return padded_img
     else
         return cropped_img
     end
+end
+
+function medimage_from_array(
+    arr::AbstractArray;
+    origin::Tuple{Float64,Float64,Float64} = (0.0, 0.0, 0.0),
+    spacing::Tuple{Float64,Float64,Float64} = (1.0, 1.0, 1.0),
+    direction::NTuple{9,Float64} = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0),
+    image_type::MedImages.Image_type = first(instances(MedImages.Image_type)),
+    image_subtype::MedImages.Image_subtype = first(instances(MedImages.Image_subtype)),
+    patient_id::String = "unknown"
+)
+    return MedImage(
+        voxel_data = arr,
+        origin = origin,
+        spacing = spacing,
+        direction = direction,
+        image_type = image_type,
+        image_subtype = image_subtype,
+        patient_id = patient_id
+    )
 end
 
 function normalize_image(img::MedImage)::MedImage
@@ -267,7 +308,9 @@ end
 #region model
 function infer_model(tstate, model, data)
     println("Infering model")
-    y_pred, st = Lux.apply(model, CuArray(data), tstate.parameters, tstate.states)
+    dev = MLDataDevices.get_device(tstate.parameters)
+    input = data |> dev
+    y_pred, st = Lux.apply(model, input, tstate.parameters, tstate.states)
     return y_pred, st
 end
 
@@ -291,4 +334,3 @@ function is_binary_tensor(tensor)
     return all(x -> x == 0 || x == 1, tensor)
 end
 #endregion
-
