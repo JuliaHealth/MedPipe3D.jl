@@ -1,3 +1,4 @@
 .CondaPkg
 .README.md
-.Probably_mot_needed
+Manifest.toml
+/dataset

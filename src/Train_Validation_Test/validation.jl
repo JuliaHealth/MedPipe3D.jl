@@ -28,7 +28,7 @@ function evaluate_validation(group_paths_val, h5, model, tstate, loss_function, 
     for path in group_paths_val
         data, labels, _ = fetch_and_preprocess_data([path], h5, config)
         y_pred, _ = infer_model(tstate, model, data)
-        _, val_loss, _, _ = Lux.Training.single_train_step!(Lux.Experimental.ADTypes.AutoZygote(), loss_function, (data, labels), tstate)
+        val_loss = loss_function(y_pred, labels)
         metrics = evaluate_metric(y_pred, labels, config["learning"]["metric"])
         # Aggregate metrics and losses
         for (class_idx, metric_value) in metrics
@@ -73,26 +73,74 @@ Converts predictions and true labels to binary format and calculates the specifi
 """
 function evaluate_metric(y_pred, labels, metric_type, threshold=0.5)
     # Convert to GPU arrays if not already
-    class_idx = maximum(labels)
-    y_pred_gpu = CuArray(y_pred)
-    labels_gpu = CuArray(labels)
-    results = Dict()
-    # Convert to binary masks for the current class
-    for i in 0:size(labels, 4)
-        binary_pred = (y_pred_gpu .== class_idx)
-        binary_labels = (labels_gpu .== class_idx)
-        # Calculate metrics per class
-        if metric_type == "dice"
-#TODO: to jest notatka do pod poprawkę channeli
-            #result = dice_metric(y_pred(i 4), labels(i 4))
-        elseif metric_type == "hausdorff"
-            result = hausdorff_metric(binary_pred, binary_labels)
+    y_pred_gpu = y_pred isa CuArray ? y_pred : CuArray(y_pred)
+    labels_gpu = labels isa CuArray ? labels : CuArray(labels)
+    results = Dict{Int, Float64}()
+
+    if metric_type == "dice"
+        y_prob = 1 ./ (1 .+ exp.(-y_pred_gpu))
+        eps_t = convert(eltype(y_prob), 1f-6)
+        n_classes = size(y_prob, 4)
+
+        if size(labels_gpu) == size(y_prob)
+            for c in 1:n_classes
+                yp = view(y_prob, :, :, :, c, :)
+                yt = view(labels_gpu, :, :, :, c, :)
+                inter = sum(yp .* yt)
+                denom = sum(yp) + sum(yt)
+                dice = (2 * inter + eps_t) / (denom + eps_t)
+                results[c - 1] = Float64(dice)
+            end
+        elseif ndims(labels_gpu) == ndims(y_prob) && size(labels_gpu, 4) == 1
+            y_true_slice = if eltype(labels_gpu) <: Integer
+                view(labels_gpu, :, :, :, 1, :)
+            else
+                y_true_int = round.(Int, labels_gpu)
+                view(y_true_int, :, :, :, 1, :)
+            end
+            for c in 1:n_classes
+                yp = view(y_prob, :, :, :, c, :)
+                mask = (y_true_slice .== (c - 1))
+                inter = sum(yp .* mask)
+                denom = sum(yp) + sum(mask)
+                dice = (2 * inter + eps_t) / (denom + eps_t)
+                results[c - 1] = Float64(dice)
+            end
         else
-            throw(ArgumentError("Unsupported metric: $metric_type"))
+            error("evaluate_metric expects labels to be one-hot or single-channel class indices.")
         end
-    
-        results[class_idx] = result
+    elseif metric_type == "hausdorff"
+        n_classes = size(y_pred_gpu, 4)
+        if size(labels_gpu) == size(y_pred_gpu)
+            for c in 1:n_classes
+                yp = view(y_pred_gpu, :, :, :, c, :)
+                yt = view(labels_gpu, :, :, :, c, :)
+                binary_pred = yp .>= threshold
+                binary_labels = yt .>= threshold
+                result = hausdorff_metric(binary_pred, binary_labels)
+                results[c - 1] = Float64(result)
+            end
+        elseif ndims(labels_gpu) == ndims(y_pred_gpu) && size(labels_gpu, 4) == 1
+            y_true_slice = if eltype(labels_gpu) <: Integer
+                view(labels_gpu, :, :, :, 1, :)
+            else
+                y_true_int = round.(Int, labels_gpu)
+                view(y_true_int, :, :, :, 1, :)
+            end
+            for c in 1:n_classes
+                yp = view(y_pred_gpu, :, :, :, c, :)
+                binary_pred = yp .>= threshold
+                binary_labels = (y_true_slice .== (c - 1))
+                result = hausdorff_metric(binary_pred, binary_labels)
+                results[c - 1] = Float64(result)
+            end
+        else
+            error("evaluate_metric expects labels to be one-hot or single-channel class indices.")
+        end
+    else
+        throw(ArgumentError("Unsupported metric: $metric_type"))
     end
+
     return results
 end
 
