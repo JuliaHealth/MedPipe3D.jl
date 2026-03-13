@@ -18,10 +18,10 @@ using KernelAbstractions
                 for p in 1:size(struct_element)[3]
                     nk = k + m - offset_d - 1
                     ni = i + n - offset_h - 1
-                    nj = j + p - offset_w 
+                    nj = j + p - offset_w - 1
 
                     if 1 <= nk <= size(input)[3] && 1 <= ni <= size(input)[4] && 
-                        nj <= size(input)[5]
+                        1 <= nj <= size(input)[5]
                         if struct_element[m, n, p] == 1 && input[b, c, nk, ni, nj] == 0
                             result = false
                             break

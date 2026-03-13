@@ -1,3 +1,5 @@
+__precompile__(false)
+
 module MedPipe3D
 
 include("dependencies.jl")
