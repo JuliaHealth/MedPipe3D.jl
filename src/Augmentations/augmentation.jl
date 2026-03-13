@@ -1,4 +1,3 @@
-include("../utils.jl")
 using  Random, Statistics, CUDA, KernelAbstractions, Distributions
 
 """

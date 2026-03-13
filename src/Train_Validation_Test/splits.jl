@@ -19,7 +19,7 @@ function proc_hdf5(h5::HDF5.File, config::Dict, rng::AbstractRNG)
     sort!(group_names)
 
     # Try JSON-based split if provided
-    split_json = config["learning"]["Train_Val_Test_JSON"]
+    split_json = get(config["learning"], "Train_Val_Test_JSON", false)
     if split_json != false
         split_map = JSON.parsefile(split_json)
         return split_from_json(group_names, h5, split_map)

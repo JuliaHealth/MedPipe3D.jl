@@ -90,11 +90,11 @@ function train_epoch(tain_group_paths, validation_group_paths, h5, model, tstate
     train_metrics = []
     batch_size = config["data"]["batch_size"]
     num_batches = ceil(Int, length(tain_group_paths) / batch_size)
-    early_stopping_metric = config["model"]["early_stopping_metric"]
-    early_stopping_min_delta = config["model"]["early_stopping_min_delta"]
-    metric = config["learning"]["metric"]
+    early_stopping_metric = get(config["model"], "early_stopping_metric", "val_loss")
+    early_stopping_min_delta = get(config["model"], "early_stopping_min_delta", 0.01)
+    metric = get(config["learning"], "metric", "dice")
     
-    if config["model"]["early_stopping"]
+    if get(config["model"], "early_stopping", false)
         best_metric = early_stopping_dict["best_metric"]
         patience_counter = early_stopping_dict["patience_counter"]
         stop_training = early_stopping_dict["stop_training"]
@@ -108,7 +108,7 @@ function train_epoch(tain_group_paths, validation_group_paths, h5, model, tstate
         push!(train_metrics, loss)
         println("Batch $batch_idx, Traing loss: $loss")
 
-        if config["model"]["early_stopping"]
+        if get(config["model"], "early_stopping", false)
             # Calculate early stopping metric
             mean_val_metric, mean_val_loss  = evaluate_validation(validation_group_paths, h5, model, tstate, loss_function, config, num_classes)
             y_pred, _ = infer_model(tstate, model, data)
@@ -126,9 +126,9 @@ function train_epoch(tain_group_paths, validation_group_paths, h5, model, tstate
                 println("Metric $early_stopping_metric last best value: $best_metric after $patience_counter batches with improvement less then $early_stopping_min_delta.")
                 break
             end
-        end
+        end 
     end
-    if config["model"]["early_stopping"]
+    if get(config["model"], "early_stopping", false)
         early_stopping_dict["best_metric"] = best_metric
         early_stopping_dict["patience_counter"] = patience_counter
         early_stopping_dict["stop_training"] = stop_training

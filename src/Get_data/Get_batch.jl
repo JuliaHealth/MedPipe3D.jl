@@ -22,14 +22,14 @@ It also handles the transfer of data to a GPU if indicated by the configuration 
 
 function fetch_and_preprocess_data(group_paths::Vector, h5::HDF5.File, config::Dict)
 
-    if config["learning"]["patch_probabilistic_oversampling"]
+    if get(config["learning"], "patch_probabilistic_oversampling", false)
         println("Fetching and preprocessing data with probabilistic oversampling.")
         images, labels, class_labels = get_patch_batch_with_classes(group_paths, h5, config)
     else
         println("Fetching and preprocessing data.")
         images, labels, class_labels = get_batch_with_classes(group_paths, h5, config)
     end
-    if config["augmentation"]["processing_unit"] == "GPU"
+    if get(config["augmentation"], "processing_unit", "CPU") == "GPU"
         images = CuArray(images)  # Move images to GPU
         labels = CuArray(labels)
     end
@@ -73,9 +73,9 @@ function get_batch_with_classes(group_paths, h5::HDF5.File, config::Dict)
         label_data = read(h5[path * "/masks/data"])
         push!(images, image_data)
 
-        if config["data"]["has_mask"]
+        if get(config["data"], "has_mask", false)
         # Apply class-based labeling if class JSON path is provided
-            if config["learning"]["class_JSON_path"] != false
+            if get(config["learning"], "class_JSON_path", false) != false
                 class_idx_name = get_class_labels([path], h5, config)
                 class_idx, class_name= split(only(keys(class_idx_name)), "_")  # Find matching key
                 class_idx = parse(Int, class_idx)
@@ -85,7 +85,7 @@ function get_batch_with_classes(group_paths, h5::HDF5.File, config::Dict)
             push!(labels, label_data)
         end
     end
-    if config["learning"]["class_JSON_path"] != false
+    if get(config["learning"], "class_JSON_path", false) != false
         class_labels_dict = get_class_labels(group_paths, h5, config)
         push!(class_labels, class_labels_dict)
     else
@@ -128,7 +128,7 @@ function get_patch_batch_with_classes(group_paths::Vector, h5::HDF5.File, config
     for path in group_paths
         image_data = read(h5[path * "/images/data"])
         label_data = read(h5[path * "/masks/data"])
-        if config["learning"]["class_JSON_path"] != false
+        if get(config["learning"], "class_JSON_path", false) != false
             class_idx_name = get_class_labels([path], h5, config)
             class_idx, class_name= split(only(keys(class_idx_name)), "_")  # Find matching key
             class_idx = parse(Int, class_idx)
@@ -147,7 +147,7 @@ function get_patch_batch_with_classes(group_paths::Vector, h5::HDF5.File, config
             push!(channel_labels, copy(label_patch))
         end
 
-        if config["learning"]["class_JSON_path"] != false
+        if get(config["learning"], "class_JSON_path", false) != false
             push!(class_labels, copy(class_idx))
         end
         channel_image_tensor = cat(channel_images..., dims=4)
@@ -191,7 +191,7 @@ function get_class_labels(patient_groups::Vector, h5::HDF5.File, config::Dict)
             metadata_group = h5[metadata_images_path]
             first_meta_subgroup_name = first(keys(metadata_group))
             meta_subgroup = metadata_group[first_meta_subgroup_name]
-            if config["learning"]["class_JSON_path"] != false
+            if get(config["learning"], "class_JSON_path", false) != false
                 class_label = safe_read_attribute(meta_subgroup, "class")
             else
                 class_label = "class1"
@@ -201,7 +201,7 @@ function get_class_labels(patient_groups::Vector, h5::HDF5.File, config::Dict)
             metadata_group = h5[metadata_masks_path]
             first_meta_subgroup_name = first(keys(metadata_group))
             meta_subgroup = metadata_group[first_meta_subgroup_name]
-            if config["learning"]["class_JSON_path"] != false
+            if get(config["learning"], "class_JSON_path", false) != false
                 class_label = safe_read_attribute(meta_subgroup, "class")
             else
                 class_label = "class1"

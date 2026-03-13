@@ -190,7 +190,89 @@ function print_hdf5_contents(hdf5_path::String)
     end
 end
 
-#TODO: po zmianie strukury hdf5 prawdopodonie przestało działać
+function _meta_sort_key(k)
+    if isa(k, AbstractString)
+        n = tryparse(Int, k)
+        if n !== nothing
+            return (0, n)
+        end
+        m = match(r"(\d+)$", k)
+        if m !== nothing
+            return (1, parse(Int, m.captures[1]))
+        end
+        return (2, k)
+    end
+    return (3, string(k))
+end
+
+function _metadata_per_channel(meta_group, num_channels::Int)
+    if meta_group === nothing
+        return [Dict() for _ in 1:num_channels]
+    end
+    meta_keys = collect(keys(meta_group))
+    isempty(meta_keys) && return [Dict() for _ in 1:num_channels]
+    sort!(meta_keys, by = _meta_sort_key)
+    metas = [read_metadata(meta_group[k]) for k in meta_keys]
+    if length(metas) == num_channels
+        return metas
+    elseif length(metas) == 1
+        base = metas[1]
+        return [base for _ in 1:num_channels]
+    else
+        out = Vector{Dict}(undef, num_channels)
+        for i in 1:num_channels
+            out[i] = i <= length(metas) ? metas[i] : Dict()
+        end
+        return out
+    end
+end
+
+function _process_data_group_v2(data_group::HDF5.Group)
+    data = read(data_group["data"])
+    nd = ndims(data)
+    if nd == 3
+        num_channels = 1
+        num_images_in_batch = 1
+    elseif nd == 4
+        num_channels = size(data, 4)
+        num_images_in_batch = 1
+    elseif nd == 5
+        num_channels = size(data, 4)
+        num_images_in_batch = size(data, 5)
+    else
+        error("Unsupported data dimensions: $nd")
+    end
+
+    meta_group = haskey(data_group, "metadata") ? data_group["metadata"] : nothing
+    meta_by_channel = _metadata_per_channel(meta_group, num_channels)
+
+    channel_data = Vector{Any}(undef, num_images_in_batch)
+    channel_meta = Vector{Any}(undef, num_images_in_batch)
+
+    if nd == 3
+        channel_data[1] = [data]
+        channel_meta[1] = meta_by_channel
+    elseif nd == 4
+        images_in_channel = Vector{Any}(undef, num_channels)
+        for j in 1:num_channels
+            images_in_channel[j] = @view data[:, :, :, j]
+        end
+        channel_data[1] = images_in_channel
+        channel_meta[1] = meta_by_channel
+    else
+        for i in 1:num_images_in_batch
+            images_in_channel = Vector{Any}(undef, num_channels)
+            for j in 1:num_channels
+                images_in_channel[j] = @view data[:, :, :, j, i]
+            end
+            channel_data[i] = images_in_channel
+            channel_meta[i] = meta_by_channel
+        end
+    end
+
+    return channel_data, channel_meta
+end
+
 function load_images_from_hdf5(hdf5_path::String)
     image_batches = []
     image_batch_metadata = []
@@ -200,17 +282,42 @@ function load_images_from_hdf5(hdf5_path::String)
     h5open(hdf5_path, "r") do file
         for batch_name in keys(file)
             batch_group = file[batch_name]
+            isa(batch_group, HDF5.Group) || continue
+
             if haskey(batch_group, "images")
-                images_data, image_meta = process_data_group(batch_group, "images", "images_metadata")
-                push!(image_batches, images_data)
-                push!(image_batch_metadata, image_meta)
+                images_obj = batch_group["images"]
+                if isa(images_obj, HDF5.Dataset)
+                    images_data, image_meta = process_data_group(batch_group, "images", "images_metadata")
+                elseif isa(images_obj, HDF5.Group) && haskey(images_obj, "data")
+                    images_data, image_meta = _process_data_group_v2(images_obj)
+                else
+                    println("No 'images' dataset found in '$batch_name'.")
+                    images_data = nothing
+                    image_meta = nothing
+                end
+                if images_data !== nothing
+                    push!(image_batches, images_data)
+                    push!(image_batch_metadata, image_meta)
+                end
             else
                 println("No 'images' dataset found in '$batch_name'.")
             end
+
             if haskey(batch_group, "masks")
-                masks_data, mask_meta = process_data_group(batch_group, "masks", "masks_metadata")
-                push!(mask_batches, masks_data)
-                push!(mask_batch_metadata, mask_meta)
+                masks_obj = batch_group["masks"]
+                if isa(masks_obj, HDF5.Dataset)
+                    masks_data, mask_meta = process_data_group(batch_group, "masks", "masks_metadata")
+                elseif isa(masks_obj, HDF5.Group) && haskey(masks_obj, "data")
+                    masks_data, mask_meta = _process_data_group_v2(masks_obj)
+                else
+                    println("No 'masks' dataset found in '$batch_name'.")
+                    masks_data = nothing
+                    mask_meta = nothing
+                end
+                if masks_data !== nothing
+                    push!(mask_batches, masks_data)
+                    push!(mask_batch_metadata, mask_meta)
+                end
             else
                 println("No 'masks' dataset found in '$batch_name'.")
             end
@@ -263,7 +370,15 @@ end
 
 function process_and_save_medimage(meta, data, output_folder, suffix)
     original_file_path = meta["file_path"]
-    original_image = load_images(original_file_path)[1]  # Load the original MedImage
+    if isdefined(MedImages, :load_images)
+        original_image = MedImages.load_images(original_file_path)[1]
+    elseif isdefined(MedImages, :load_image) && hasmethod(MedImages.load_image, Tuple{String, String})
+        # If type is provided in metadata, pass it to load_image
+        img_type = get(meta, "image_type", "CT")
+        original_image = MedImages.load_image(original_file_path, string(img_type))
+    else
+        original_image = MedImages.load_image(original_file_path)
+    end
 
     updated_image = update_voxel_and_spatial_data(
         original_image, data, original_image.origin, original_image.spacing, original_image.direction
