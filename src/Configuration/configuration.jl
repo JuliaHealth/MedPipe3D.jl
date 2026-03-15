@@ -26,7 +26,7 @@ end
 
 struct AugmentationEntry
     name::String
-    p_rand::Float64           # per-augmentation probability  ← TODO #3
+    p_rand::Float64           # per-augmentation probability  
     params::Dict{String,Any}
 end
 
@@ -136,7 +136,7 @@ function _build_data_config()::DataConfig
     channel_masks = _int(_read("Channel size for masks",   "4"))
     batch_size    = _int(_read("Batch size",               "4"))
     # NOTE: batch_complete removed — incomplete batches are simply dropped
-    #       (rethought as per TODO #2; use a DataLoader with drop_last=true semantics)
+    #       ( use a DataLoader with drop_last=true semantics)
 
     resample_to_target = _bool(_read("Resample to first image? (true/false)", "false"))
 
@@ -239,7 +239,7 @@ function _build_augmentation_config()::AugmentationConfig
     for idx in indices
         name = AUGMENTATION_MENU[idx]
         println("\nConfiguring: $name")
-        # ← TODO #3 — per-augmentation p_rand
+        # per-augmentation p_rand
         p_rand = _float(_read("  p_rand (probability of applying this augmentation)", "0.5"))
         params = _collect_aug_params(name)
         push!(entries, AugmentationEntry(name, p_rand, params))
