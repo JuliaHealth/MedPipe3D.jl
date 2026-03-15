@@ -5,7 +5,7 @@ module MedPipe3D
 include("dependencies.jl")
 
 # Utilities (uses HDF5, Statistics, JSON — loaded inside the included files)
-include("utils.jl")
+include("utils/utils.jl")
 
 # Configuration
 include("Configuration/configuration.jl")
@@ -20,12 +20,12 @@ include("Get_data/Get_batch.jl")
 include("Train_Validation_Test/get_loss_function.jl")
 include("Train_Validation_Test/get_optimiser.jl")
 include("Train_Validation_Test/model.jl")
-include("Train_Validation_Test/training_utils.jl")
 include("Train_Validation_Test/splits.jl")
 include("Train_Validation_Test/validation.jl")
 include("Train_Validation_Test/train.jl")
 include("Train_Validation_Test/test.jl")
 include("Train_Validation_Test/main_loop.jl")
+
 
 # Augmentations
 include("Augmentations/augmentation.jl")
