@@ -1,265 +1,359 @@
-"""
-`batch_main(main_folder::String, save_path::String, config_path::String=nothing, config_name::String="config.json")`
 
-Executes the main processing routine for batching and saving processed medical image and mask data.
-
-# Arguments
-- `main_folder`: The root directory containing patient data folders.
-- `save_path`: The path where processed data will be saved.
-- `config_path`: Optional path to an existing configuration JSON file. If not provided, a new one will be created.
-- `config_name`: Name for a newly created configuration file if `config_path` is not provided.
-
-# Returns
-- Function does not explicitly return unless it successfully completes processing and saving data,
-in which case it might return a confirmation or success message, depending on the implementation of `save_to_hdf5`.
-
-# Description
-The function first checks whether a configuration path is provided; if not, it creates a new configuration.
-It then identifies and segregates image and mask folders within the patient directories, processes them, and finally, calls another function to save the processed data.
-It ensures that both image and mask data are available for each patient, handling different channels and applying the configurations set forth in the JSON configuration file.
-
-# Errors
-Throws an error if the necessary image or mask directories are not found within the patient folders, or if any other critical step fails during processing.
-"""
-
-function batch_main(main_folder::String, save_path, config_path=nothing, config_name = "config.json")
-    if config_path === nothing                                                  # Check if a specific configuration file path is provided, otherwise create a new configuration
-        create_config_extended("test_data/zubik/saving_folder", config_name)
-        config_path = "test_data/zubik/saving_folder/config.json"
-    end
-    image_channel_folders = String[]                                            # Check if a specific configuration file path is provided, otherwise create a new configuration
-    mask_channel_folders = String[]
-    patient_folders = readdir(main_folder)
-    for patient_folder in patient_folders                                       # Search for subfolders named 'Images' and 'Masks' within each patient folder
-        patient_path = joinpath(main_folder, patient_folder)
-        if isdir(patient_path)
-            subfolders = readdir(patient_path)
-            for subfolder in subfolders
-                subfolder_path = joinpath(patient_path, subfolder)
-                if isdir(subfolder_path)
-                    if contains(lowercase(subfolder), "image")
-                        push!(image_channel_folders, subfolder_path)
-                    elseif contains(lowercase(subfolder), "mask")
-                        push!(mask_channel_folders, subfolder_path)
-                    end
-                end
-            end
-        end
-    end
-    #TODO: Change so that it is not 2 separate calls but 1 loop depending on the channel name
-    if !isempty(image_channel_folders) && !isempty(mask_channel_folders)       # Search for subfolders named 'Images' and 'Masks' within each patient folder
-        # Process images
-        println("Processing image and mask folders in: $main_folder")
-        println("\nProcessing images.")
-        # Call functions to process images and save them
-        images_batches, images_metadata, channel_names  = load_create_dataset_and_metadata(image_channel_folders, config_path, Linear_en, "image")
-
-        # Process masks
-        println("\nProcessing masks.")
-        # Call functions to process masks and  save them
-        masks_batches, masks_metadata  = load_create_dataset_and_metadata(mask_channel_folders, config_path, Nearest_neighbour_en,"mask")
-        
-        return save_to_hdf5(images_batches, images_metadata, masks_batches, masks_metadata, save_path, channel_names)
-    else
-        error("Could not find both image or mask folders per patient folder in the specified main folder.")
-    end
+"""Holds the raw loaded images and their original metadata for one channel folder."""
+struct ChannelData
+	images::Vector{MedImage}
+	metadata::Vector{Dict{String, Any}}
+	folder_name::String
 end
 
+# ────────────────────────────────────────────────────────────
+# batch_main
+# ────────────────────────────────────────────────────────────
 
 """
-`load_create_dataset_and_metadata(channel_paths::Vector{String}, config_path::String, interpolator::Interpolator_enum, channel_type::String)`
+	batch_main(main_folder, save_path, config_path=nothing, config_name="config.json")
 
-Loads and processes medical image datasets from specified paths, applying configurations from a JSON file.
+Orchestrates loading, pre-processing, and saving of medical image/mask data.
 
 # Arguments
-- `channel_paths`: A vector of directory paths containing the image or mask files.
-- `config_path`: Path to the JSON configuration file which includes processing parameters.
-- `interpolator`: An enum defining the type of interpolation to use during image resampling.
-- `channel_type`: Specifies the type of data being processed, e.g., 'image' or 'masks'.
-
-# Returns
-- `Tuple`: A tuple containing the final tensor of processed images, metadata for each image, and the names of the channels.
+- `main_folder`  : Root directory containing one sub-folder per patient.
+- `save_path`    : Destination path for the output HDF5 file.
+- `config_path`  : Path to an existing JSON config.  If `nothing`, a new one is
+				   created interactively under `save_path`.
+- `config_name`  : File name used when a new config is written.
 
 # Description
-This function processes medical images or masks by loading settings from a configuration file.
-It handles different image channels, applies specified image processing steps like resampling, normalization, and standardization, and organizes images into a structured tensor format.
-Metadata is also gathered and structured for each image, facilitating further data management or analysis.
-
-# Errors
-Throws an error if there are any inconsistencies with the expected data inputs or processing parameters. Errors are also raised for file mismatches, configuration issues, or if the processing steps fail due to invalid data properties.
+For each patient folder the function searches for sub-directories whose names
+contain `"image"` or `"mask"` (case-insensitive).  Both image and mask channels
+are processed through the same pipeline in a single unified loop — they are only
+dispatched to different interpolators and intensity-processing rules downstream.
 """
+function batch_main(
+	main_folder::String,
+	save_path::String,
+	config_path::Union{String, Nothing} = nothing,
+	config_name::String = "config.json",
+)
+	# ── Config ────────────────────────────────────────────────
+	if config_path === nothing
+		config_path = create_config(save_path, config_name)   
+	end
 
-#TODO: This function should be separated into Loading and pre-processing(resample_to_image, resample_to_spacing, crop_or_pad)
-function load_create_dataset_and_metadata(channel_paths::Vector{String}, config_path::String, interpolator::Interpolator_enum, channel_type::String)
-    println("Loading configuration from: $config_path")
-    config = JSON.parsefile(config_path)                                          # Load configuration settings from the specified JSON file
-    if channel_type == "image"                                                    # Determine channel size based on whether images or masks are being processed
-        channel_size = config["data"]["channel_size_imgs"]
-    elseif channel_type == "masks"
-        channel_size = config["data"]["channel_size_masks"]
-    else 
-        println("Images and masks are required.")
-    end
-#TODO: probably wrong or unnecessary
-    batch_complete = config["data"]["batch_complete"]
-    # Extract other important parameters from configuration
-    resample_images_to_target = config["data"]["resample_to_target"]
-    resample_images_spacing = config["data"]["resample_to_spacing"]
-    target_spacing = config["data"]["target_spacing"]
-    resample_size = config["data"]["resample_size"]
-    standardization = config["data"]["standardization"]
-    normalization = config["data"]["normalization"]
+	image_channel_folders = String[]
+	mask_channel_folders  = String[]
 
-    # Optional JSON paths for splitting data and class mapping
-    config["learning"]["Train_Val_Test_JSON"] != false ? dataset_splits = config["learning"]["Train_Val_Test_JSON"] : dataset_splits = false
-    config["learning"]["class_JSON_path"] != false ? class_mapping = config["learning"]["class_JSON_path"] : class_mapping = false
-    
-    # Prepare to collect processed data and metadata
-    channels_data = []
-    all_metadata = []
-    error_messages = []
-    println("Processing $class_names.")
-    channel_names = [basename(dirname(path)) for path in channel_paths]
-    
-    # Process each channel folder found in the given paths
-    for channel_path in channel_paths
-        channel_folder = basename(dirname(channel_path))
-        println("Processing channel folder: $channel_folder")
-        image_files = [joinpath(channel_path, file) for file in readdir(channel_path) if isfile(joinpath(channel_path, file))]
-        needed_image_files = sort(image_files)[1:min(channel_size, length(image_files))]  
-        Med_images = [load_images(file_path)[1] for file_path in needed_image_files]
-        # Collect metadata for each image
-        println("Collecting original metadata for channel '$channel_folder'.")
-        metadata = [Dict(
-            "file_path" => file,
-            "data_split" => get_class_or_split_from_json(channel_path, dataset_splits),
-            "class" => get_class_or_split_from_json(channel_path, class_mapping, class_names),
-            "patient_uid_org" => img.patient_uid,
-            "shape_org" => size(img.voxel_data),
-            "spacing_org" => img.spacing,
-            "origin_org" => img.origin,
-            "direction_org" => img.direction,
-            "type_org" => img.image_type
-        ) for (file, img) in zip(needed_image_files, Med_images)]
-        
-        # Resample to the first image in the channel if required
-        if resample_images_to_target && !isempty(Med_images)
-            println("Resampling $channel_type files in channel '$channel_folder' to the first $channel_type in the channel.")
-            reference_image = Med_images[1]
-            Med_images = [resample_to_image(reference_image, img, interpolator) for img in Med_images]
-        end
+	for patient_folder in readdir(main_folder)
+		patient_path = joinpath(main_folder, patient_folder)
+		isdir(patient_path) || continue
+		for subfolder in readdir(patient_path)
+			subfolder_path = joinpath(patient_path, subfolder)
+			isdir(subfolder_path) || continue
+			lc = lowercase(subfolder)
+			if contains(lc, "image")
+				;
+				push!(image_channel_folders, subfolder_path)
+			elseif contains(lc, "mask")
+				;
+				push!(mask_channel_folders, subfolder_path)
+			end
+		end
+	end
 
-        # Handle cases where the number of images is less than or greater than the channel size
-        if length(Med_images) < channel_size
-            if batch_complete
-                println("Channel '$channel_folder' has less than $channel_size $channel_type files. Padding with zeros.")
-                append!(Med_images, [update_voxel_and_spatial_data(Med_images[1], zeros(size(Med_images[1].voxel_data)), Med_images[1].spacing,
-                                      Med_images[1].origin, Med_images[1].direction)
-                                      for _ in 1:(channel_size - length(Med_images))])
-            else
-                error_msg = "Error: Not enough $channel_type files in channel '$channel_folder'. Expected at least $channel_size, found $(length(Med_images))."
-                println(error_msg)
-                push!(error_messages, error_msg)
-                continue
-            end
-        elseif length(image_files) > channel_size
-            println("Channel '$channel_folder' has more than $channel_size $channel_type files. Trimming the excess.")
-        end
+	isempty(image_channel_folders) && error(
+		"No 'image' sub-folders found under $main_folder.")
+	isempty(mask_channel_folders) && error(
+		"No 'mask' sub-folders found under $main_folder.")
 
-        push!(channels_data, Med_images)  # Store channel data without concatenation
-        push!(all_metadata, metadata)
-    end
+	# Images use linear interpolation; masks use nearest-neighbour to preserve labels.
+	channel_specs = [
+		(image_channel_folders, Linear_en, "image"),
+		(mask_channel_folders, Nearest_neighbour_en, "mask"),
+	]
 
-    # Error handling
-    if !isempty(error_messages)
-        for message in error_messages
-            println(message)
-        end
-        error("There were errors with the input $channel_type channels. Please see the error messages above.")
-    end
+	results = Dict{String, Any}()
+	channel_names = nothing
 
-    # Ensure uniform spacing across the entire dataset
-    if resample_images_spacing == "set"
-        println("Resampling all $channel_type files to target spacing: $target_spacing")
-        target_spacing = Tuple(Float32(s) for s in target_spacing)
-        channels_data = [[resample_to_spacing(img, target_spacing, interpolator) for img in channel] for channel in channels_data]
-    elseif resample_images_spacing == "avg"
-        println("Calculating average spacing across all $channel_type files and resampling.")
-        all_spacings = [img.spacing for channel in channels_data for img in channel]
-        avg_spacing = Tuple(Float32(mean(s)) for s in zip(all_spacings...))
-        println("Average spacing calculated: $avg_spacing")
-        
-        channels_data = [[resample_to_spacing(img, avg_spacing, interpolator) for img in channel] for channel in channels_data]
-    elseif resample_images_spacing == "median"
-        println("Calculating median spacing across all $channel_type files and resampling.")
-        all_spacings = [img.spacing for channel in channels_data for img in channel]
-        median_spacing = Tuple(Float32(median(s)) for s in all_spacings)
-        println("Median spacing calculated: $median_spacing")
-        channels_data = [[resample_to_spacing(img, median_spacing, interpolator) for img in channel] for channel in channels_data]
-    elseif resample_images_spacing == false
-        println("Skipping resampling of $channel_type files.")
-        # No resampling will be applied, channels_data remains unchanged.
-    end
-  
-    # Apply normalization and standardization if required
-    if normalization && channel_type != "mask"
-        println("Applying normalization to all $channel_type files.")
-        channels_data = [[normalize_image(img) for img in channel] for channel in channels_data]
-    end
-    if standardization && channel_type != "mask"
-        println("Applying standardization to all $channel_type files.")
-        channels_data = [[standardize_image(img) for img in channel] for channel in channels_data]
-    end
+	for (folders, interpolator, kind) in channel_specs
+		println("\nProcessing $kind channels…")
+		tensor, metadata, names = load_and_preprocess(folders, config_path, interpolator, kind)
+		results[kind]           = (tensor, metadata)
+		kind == "image" && (channel_names = names)
+	end
 
-    # Adjust the dimensions of all images to the average or the stated dimension
-    if resample_size == "avg"
-        sizes = [size(img.voxel_data) for img in channels_data for img in img]  # Get sizes from all images
-        avg_dim = map(mean, zip(sizes...))
-        avg_dim = Tuple(Int(round(d)) for d in avg_dim)
-        println("Resizing all $channel_type files to average dimension: $avg_dim")
-        channels_data = [[crop_or_pad(img, avg_dim) for img in channel] for channel in channels_data]
-    elseif resample_size != "avg" #TODO: change the wording, it is not readable
-        target_dim = Tuple(resample_size)
-        println("Resizing all $channel_type files to target dimension: $target_dim")
-        channels_data = [[crop_or_pad(img, target_dim) for img in channel] for channel in channels_data]
-    end
+	return save_to_hdf5(
+		results["image"][1], results["image"][2],
+		results["mask"][1], results["mask"][2],
+		save_path, channel_names,
+	)
+end
 
-    # Ensure that all files have the same size
-    expected_dim = size(channels_data[1][1].voxel_data)  # Assuming all images have been resized correctly
-    for channel in channels_data
-        for img in channel
-            if size(img.voxel_data) != expected_dim
-                error("$channel_type size mismatch. Expected size: $expected_dim, but got size: $(size(img.voxel_data))")
-            end
-        end
-    end
+# ────────────────────────────────────────────────────────────
+# Stage 1 — Loading
+# ────────────────────────────────────────────────────────────
 
-    # Update metadata for each image
-    for (i, channel) in enumerate(channels_data)
-        meta_list = all_metadata[i]
-        for (j, img) in enumerate(channel)
-            meta = meta_list[j]
-            meta["name"]=channel_names[i] * "_$j"
-            meta["shape_final"] = size(img.voxel_data)
-            meta["spacing_final"] = img.spacing
-            meta["origin_final"] = img.origin
-            meta["direction_final"] = img.direction
-        end
-    end
+"""
+	load_channel_data(channel_paths, config, channel_type) -> Vector{ChannelData}
 
-    channels_tensor = []
-    for (i , channel) in enumerate(channels_data)
-        # Concatenate all images in a channel into a single tensor along the 4th dimension
-        println("Concatenating all $channel_type files into channels $i.")
-        channel_tensor = cat([img.voxel_data for img in channel]..., dims=4)
-        push!(channels_tensor, channel_tensor)
-    end
-    # Concatenating all channels into a single tensor with correct dimension handling
-    println("Concatenating all $channel_type files into a single tensor.")
-    final_tensor = cat(channels_tensor..., dims=5)
-    println("Collecting all metadata")
-    metadata = vcat(all_metadata...)
-    final_tensor_size = size(final_tensor)
-    println("Tensor formation complete. Returning the final $final_tensor_size tensor and metadata.")
-    return final_tensor, metadata, channel_names
+Load raw MedImages from disk and collect original metadata.
+No spatial transformation is applied here.
+
+# Arguments
+- `channel_paths` : Folders, one per channel.
+- `config`        : Parsed JSON config dict.
+- `channel_type`  : `"image"` or `"mask"` — controls which `channel_size` key is read.
+
+Returns one `ChannelData` per folder.  Folders that do not contain enough files
+(and where the pipeline is not configured to pad) are collected as errors and
+reported together before raising.
+"""
+function load_channel_data(
+	channel_paths::Vector{String},
+	config::Dict,
+	channel_type::String,
+)::Vector{ChannelData}
+
+	channel_size = if channel_type == "image"
+		config["data"]["channel_size_imgs"]
+	elseif channel_type == "mask"
+		config["data"]["channel_size_masks"]
+	else
+		error("channel_type must be \"image\" or \"mask\", got \"$channel_type\".")
+	end
+
+	dataset_splits = let v = config["learning"]["split"]["json_path"]
+		v === nothing || v == false ? nothing : v
+	end
+	class_mapping  = let v = config["learning"]["class_json_path"]
+		v === nothing || v == false ? nothing : v
+	end
+
+	loaded = ChannelData[]
+	errors = String[]
+
+	for channel_path in channel_paths
+		folder_name = basename(dirname(channel_path))
+		println("  Loading channel: $folder_name")
+
+		all_files = sort(filter(
+			f -> isfile(joinpath(channel_path, f)),
+			readdir(channel_path),
+		))
+		image_files = [joinpath(channel_path, f) for f in all_files]
+
+		if length(image_files) < channel_size
+			# Insufficient files and no padding → defer error, continue to surface all problems at once.
+			push!(errors, "Channel '$folder_name': expected $channel_size $channel_type " *
+						  "files, found $(length(image_files)).")
+			continue
+		end
+
+		# Trim to channel_size (already sorted)
+		needed_files = image_files[1:channel_size]
+		images       = [load_images(fp)[1] for fp in needed_files]
+
+		metadata = [
+			Dict{String, Any}(
+				"file_path"       => fp,
+				"data_split"      => get_class_or_split_from_json(channel_path, dataset_splits),
+				"class"           => get_class_or_split_from_json(channel_path, class_mapping),
+				"patient_uid_org" => img.patient_uid,
+				"shape_org"       => size(img.voxel_data),
+				"spacing_org"     => img.spacing,
+				"origin_org"      => img.origin,
+				"direction_org"   => img.direction,
+				"type_org"        => img.image_type,
+			) for (fp, img) in zip(needed_files, images)
+		]
+
+		push!(loaded, ChannelData(images, metadata, folder_name))
+	end
+
+	if !isempty(errors)
+		foreach(e -> @error(e), errors)
+		error("Insufficient $channel_type files in one or more channels. See errors above.")
+	end
+
+	return loaded
+end
+
+# ────────────────────────────────────────────────────────────
+# Stage 2 — Pre-processing
+# ────────────────────────────────────────────────────────────
+
+"""
+	preprocess_channel_data(channels, config, interpolator, channel_type) -> Vector{ChannelData}
+
+Apply all spatial and intensity transformations to already-loaded channel data.
+
+Steps (in order):
+1. Resample each channel to its own first image (if `resample_to_target`).
+2. Resample all channels to a common spacing (`avg` / `median` / `set` / `none`).
+3. Normalise / standardise intensity (images only, never masks).
+4. Crop or pad to a common spatial size (`avg` or explicit tuple).
+5. Validate that every image has the same final size.
+"""
+function preprocess_channel_data(
+	channels::Vector{ChannelData},
+	config::Dict,
+	interpolator::Interpolator_enum,
+	channel_type::String,
+)::Vector{ChannelData}
+
+	data_cfg           = config["data"]
+	resample_to_target = data_cfg["resample_to_target"]
+	spacing_strategy   = data_cfg["resampling"]["strategy"]
+	target_spacing_cfg = data_cfg["resampling"]["target_spacing"]
+	resample_size_cfg  = data_cfg["resampling"]["target_size"]
+	do_normalize       = data_cfg["normalisation"]["normalize"]
+	do_standardize     = data_cfg["normalisation"]["standardize"]
+
+	# Convenience: rebuild mutable image lists so we can reassign
+	imgs_per_channel = [copy(ch.images) for ch in channels]
+
+	# ── Step 1: resample to first image in channel ─────────────
+	if resample_to_target
+		println("  Resampling each $channel_type channel to its own reference image.")
+		imgs_per_channel = map(imgs_per_channel) do imgs
+			ref = imgs[1]
+			[resample_to_image(ref, img, interpolator) for img in imgs]
+		end
+	end
+
+	# ── Step 2: common spacing ─────────────────────────────────
+	if spacing_strategy == "set"
+		target_sp = Tuple(Float32(s) for s in target_spacing_cfg)
+		println("  Resampling all $channel_type files to target spacing: $target_sp")
+		imgs_per_channel = map(imgs -> [resample_to_spacing(img, target_sp, interpolator) for img in imgs],
+			imgs_per_channel)
+
+	elseif spacing_strategy == "avg"
+		all_sp = [img.spacing for imgs in imgs_per_channel for img in imgs]
+		avg_sp = Tuple(Float32(mean(s)) for s in zip(all_sp...))
+		println("  Resampling all $channel_type files to average spacing: $avg_sp")
+		imgs_per_channel = map(imgs -> [resample_to_spacing(img, avg_sp, interpolator) for img in imgs],
+			imgs_per_channel)
+
+	elseif spacing_strategy == "median"
+		all_sp = [img.spacing for imgs in imgs_per_channel for img in imgs]
+		med_sp = Tuple(Float32(median(getindex.(all_sp, i))) for i in 1:length(all_sp[1]))
+		println("  Resampling all $channel_type files to median spacing: $med_sp")
+		imgs_per_channel = map(imgs -> [resample_to_spacing(img, med_sp, interpolator) for img in imgs],
+			imgs_per_channel)
+
+	elseif spacing_strategy in ("none", nothing, false)
+		println("  Skipping spacing resampling for $channel_type files.")
+	else
+		@warn "Unknown spacing strategy '$(spacing_strategy)'; skipping."
+	end
+
+	# ── Step 3: intensity (images only) ───────────────────────
+	if channel_type != "mask"
+		if do_normalize
+			println("  Normalising $channel_type files.")
+			imgs_per_channel = map(imgs -> [normalize_image(img) for img in imgs], imgs_per_channel)
+		end
+		if do_standardize
+			println("  Standardising $channel_type files.")
+			imgs_per_channel = map(imgs -> [standardize_image(img) for img in imgs], imgs_per_channel)
+		end
+	end
+
+	# ── Step 4: spatial size ───────────────────────────────────
+	target_dim = if resample_size_cfg == "avg"
+		all_sizes = [size(img.voxel_data) for imgs in imgs_per_channel for img in imgs]
+		Tuple(Int(round(mean(getindex.(all_sizes, i)))) for i in 1:length(all_sizes[1]))
+	else
+		Tuple(Int(s) for s in resample_size_cfg)
+	end
+	println("  Resizing all $channel_type files to: $target_dim")
+	imgs_per_channel = map(imgs -> [crop_or_pad(img, target_dim) for img in imgs],
+		imgs_per_channel)
+
+	# ── Step 5: size consistency check ────────────────────────
+	expected = size(imgs_per_channel[1][1].voxel_data)
+	for (ci, imgs) in enumerate(imgs_per_channel), (ii, img) in enumerate(imgs)
+		sz = size(img.voxel_data)
+		sz == expected || error(
+			"$channel_type size mismatch at channel $ci, image $ii: " *
+			"expected $expected, got $sz.")
+	end
+
+	# Rebuild ChannelData structs with updated images
+	return [ChannelData(imgs_per_channel[i], channels[i].metadata, channels[i].folder_name)
+			for i in eachindex(channels)]
+end
+
+# ────────────────────────────────────────────────────────────
+# Stage 3 — Metadata finalisation + tensor assembly
+# ────────────────────────────────────────────────────────────
+
+"""
+	assemble_tensor(channels, channel_names, channel_type)
+		-> (final_tensor, flat_metadata)
+
+Stamp final spatial metadata onto each image's metadata dict, concatenate all
+voxel arrays into a single 5-D tensor `(X, Y, Z, channel, batch)`, and flatten
+all metadata into one vector.
+"""
+function assemble_tensor(
+	channels::Vector{ChannelData},
+	channel_names::Vector{String},
+	channel_type::String,
+)
+	for (i, ch) in enumerate(channels)
+		for (j, img) in enumerate(ch.images)
+			meta = ch.metadata[j]
+			meta["name"] = channel_names[i] * "_$j"
+			meta["shape_final"] = size(img.voxel_data)
+			meta["spacing_final"] = img.spacing
+			meta["origin_final"] = img.origin
+			meta["direction_final"] = img.direction
+		end
+	end
+
+	channel_tensors = map(enumerate(channels)) do (i, ch)
+		println("  Stacking $channel_type channel $i along dim 4.")
+		cat([img.voxel_data for img in ch.images]..., dims = 4)
+	end
+
+	println("  Concatenating all $channel_type channels into final 5-D tensor.")
+	final_tensor = cat(channel_tensors..., dims = 5)
+	flat_metadata = vcat([ch.metadata for ch in channels]...)
+
+	@info "$(channel_type) tensor ready: $(size(final_tensor))"
+	return final_tensor, flat_metadata
+end
+
+# ────────────────────────────────────────────────────────────
+# Public combined entry point
+# ────────────────────────────────────────────────────────────
+
+"""
+	load_and_preprocess(channel_paths, config_path, interpolator, channel_type)
+		-> (final_tensor, metadata, channel_names)
+
+Public façade that runs the two separated stages (loading → pre-processing)
+and then assembles the final tensor.
+
+Replaces the original monolithic `load_create_dataset_and_metadata`.
+"""
+function load_and_preprocess(
+	channel_paths::Vector{String},
+	config_path::String,
+	interpolator::Interpolator_enum,
+	channel_type::String,
+)
+	config = JSON.parsefile(config_path)
+	channel_names = [basename(dirname(p)) for p in channel_paths]
+
+	# Stage 1
+	raw = load_channel_data(channel_paths, config, channel_type)
+
+	# Stage 2
+	processed = preprocess_channel_data(raw, config, interpolator, channel_type)
+
+	# Stage 3
+	final_tensor, metadata = assemble_tensor(processed, channel_names, channel_type)
+
+	return final_tensor, metadata, channel_names
 end

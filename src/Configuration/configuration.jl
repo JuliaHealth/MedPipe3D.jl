@@ -1,8 +1,3 @@
-# ============================================================
-#  pipeline_config.jl
-#  Configuration builder for a medical image segmentation pipeline
-# ============================================================
-
 using JSON
 
 # ────────────────────────────────────────────────────────────
@@ -11,7 +6,7 @@ using JSON
 
 function _read(prompt::String, default)
 	print("$prompt [default: $(repr(default))]: ")
-	raw = strip(readline())
+	raw = String(strip(readline()))
 	isempty(raw) ? string(default) : raw
 end
 
@@ -29,18 +24,6 @@ function _tuple3_int(s::String)
 	nums = parse.(Int, split(strip(s, ['(', ')', ' ']), ','))
 	length(nums) == 3 || error("Expected 3 values, got $(length(nums))")
 	[nums[1], nums[2], nums[3]]
-end
-
-"""Parse "lr=0.001,weight_decay=1e-5" → Dict("lr"=>0.001, "weight_decay"=>1e-5)."""
-function _parse_optimizer_args(s::String)::Dict{String, Any}
-	d = Dict{String, Any}()
-	for pair in split(s, ',')
-		kv = split(strip(pair), '=')
-		length(kv) == 2 || continue
-		k, v = strip(kv[1]), strip(kv[2])
-		d[k] = something(tryparse(Float64, v), tryparse(Int, v), v)
-	end
-	d
 end
 
 # ────────────────────────────────────────────────────────────
@@ -237,7 +220,7 @@ function _build_model_config()::Dict{String, Any}
 	println("\n── Model Parameters ─────────────────────────────────")
 
 	optimizer  = _read("Optimizer (e.g. Adam, SGD)", "Adam")
-	opt_args   = _parse_optimizer_args(_read("Optimizer args, e.g. lr=0.001,weight_decay=1e-5", "lr=0.001"))
+	opt_args   = parse_optimizer_args(_read("Optimizer args, e.g. lr=0.001,weight_decay=1e-5", "lr=0.001"))
 	num_epochs = _int(_read("Number of epochs", "50"))
 	loss       = _read("Loss function (e.g. dice, bce, l1, Custom)", "dice")
 	loss == "Custom" && println("  ℹ  Pass your custom loss directly to Main_loop.")
