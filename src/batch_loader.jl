@@ -61,7 +61,6 @@ It supports class-specific labeling by modifying the label data based on class i
 - Raises an error if there are issues accessing the specified paths within the HDF5 file.
 - Raises an error if class indices are incorrectly formatted or absent when required.
 """
-#TODO: add logs so you know if multi class or binary
 function get_batch_with_classes(group_paths, h5::HDF5.File, config::Dict)
 	images = []
 	labels = []
@@ -93,6 +92,29 @@ function get_batch_with_classes(group_paths, h5::HDF5.File, config::Dict)
 	end
 	images_tensor = cat(images..., dims = 5)
 	labels_tensor = cat(labels..., dims = 5)
+
+	# --- Classification mode logging ---
+	# Determine number of unique classes from the collected labels tensor
+	unique_label_values = unique(labels_tensor)
+	# Exclude background (0); the remaining values are foreground class indices
+	foreground_classes = filter(v -> v != 0, unique_label_values)
+	n_foreground = length(foreground_classes)
+
+	if get(config["learning"], "class_JSON_path", false) != false
+		# Multi-class path: class indices are embedded in the label values
+		if n_foreground > 1
+			println("[Classification mode] MULTI-CLASS segmentation detected: $n_foreground foreground classes present in batch (class indices: $(sort(foreground_classes))).")
+		elseif n_foreground == 1
+			println("[Classification mode] BINARY segmentation detected: 1 foreground class present in batch (class index: $(foreground_classes[1])).")
+		else
+			println("[Classification mode] WARNING: No foreground labels found in batch. Labels tensor contains only background (0) values.")
+		end
+	else
+		# No class JSON — single foreground class, treated as binary
+		println("[Classification mode] BINARY segmentation (no class JSON provided). Labels contain $(length(unique_label_values)) unique value(s): $(sort(unique_label_values)).")
+	end
+	# --- End classification mode logging ---
+
 	return images_tensor, labels_tensor, class_labels
 end
 
@@ -138,7 +160,7 @@ function get_patch_batch_with_classes(group_paths::Vector, h5::HDF5.File, config
 		channel_images, channel_labels = [], []
 		println("Cutting patches in channel: ", path)
 
-		for channel in 1:size(image_data, 4)
+		for channel in axes(image_data, 4)
 			image_slize = copy(image_data[:, :, :, channel])
 			label_slice = copy(label_data[:, :, :, channel])
 			image_patch, label_patch = extract_patch(image_slize, label_slice, patch_size, config)
@@ -303,7 +325,7 @@ function extract_nonzero_patch(image, label, patch_size)
 		return get_random_patch(image, label, patch_size)
 	else
 		# Choose a random non-zero index to center the patch around
-		center = indices[rand(1:length(indices))]
+		center = indices[rand(eachindex(indices))]
 		return get_centered_patch(image, label, center, patch_size)
 	end
 end
@@ -388,9 +410,9 @@ function get_random_patch(image, label, patch_size)
 	end
 
 	# Calculate random start indices within the new allowable range
-	start_x = rand(1:(size(image, 1)-patch_size[1]+1))
-	start_y = rand(1:(size(image, 2)-patch_size[2]+1))
-	start_z = rand(1:(size(image, 3)-patch_size[3]+1))
+	start_x = rand(axes(image, 1)[1:(end-patch_size[1]+1)])
+	start_y = rand(axes(image, 2)[1:(end-patch_size[2]+1)])
+	start_z = rand(axes(image, 3)[1:(end-patch_size[3]+1)])
 	start_indices = [start_x, start_y, start_z]
 	end_indices = start_indices .+ patch_size .- 1
 
