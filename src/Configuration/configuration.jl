@@ -1,500 +1,323 @@
+using JSON
+
+# ────────────────────────────────────────────────────────────
+# Helpers
+# ────────────────────────────────────────────────────────────
+
+function _read(prompt::String, default)
+	print("$prompt [default: $(repr(default))]: ")
+	raw = String(strip(readline()))
+	isempty(raw) ? string(default) : raw
+end
+
+_bool(s)  = parse(Bool, s)
+_int(s)   = parse(Int, s)
+_float(s) = parse(Float64, s)
+
+function _tuple3_float(s::String)
+	nums = parse.(Float64, split(strip(s, ['(', ')', ' ']), ','))
+	length(nums) == 3 || error("Expected 3 values, got $(length(nums))")
+	[nums[1], nums[2], nums[3]]
+end
+
+function _tuple3_int(s::String)
+	nums = parse.(Int, split(strip(s, ['(', ')', ' ']), ','))
+	length(nums) == 3 || error("Expected 3 values, got $(length(nums))")
+	[nums[1], nums[2], nums[3]]
+end
+
+# ────────────────────────────────────────────────────────────
+# Section builders  (each returns a plain Dict)
+# ────────────────────────────────────────────────────────────
+
+function _build_data_config()::Dict{String, Any}
+	println("\n── Data Parameters ──────────────────────────────────")
+
+	channel_imgs  = _int(_read("Channel size for images", "4"))
+	channel_masks = _int(_read("Channel size for masks", "4"))
+	batch_size    = _int(_read("Batch size", "4"))
+
+	resample_to_target = _bool(_read("Resample to first image? (true/false)", "false"))
+
+	strategy       = _read("Resample spacing strategy (avg/median/set/none)", "avg")
+	target_spacing = nothing
+	if strategy == "set"
+		target_spacing = _tuple3_float(_read("Target spacing, e.g. 1.0,1.0,1.0", "1.0,1.0,1.0"))
+	end
+
+	raw_size    = _read("Resample size (avg or e.g. 128,128,128)", "avg")
+	target_size = raw_size == "avg" ? "avg" : _tuple3_int(raw_size)
+
+	standardize = _bool(_read("Standardisation?", "false"))
+	normalize   = _bool(_read("Normalisation?", "false"))
+
+	return Dict{String, Any}(
+		"batch_size"         => batch_size,
+		"channel_size_imgs"  => channel_imgs,
+		"channel_size_masks" => channel_masks,
+		"resample_to_target" => resample_to_target,
+		"resampling"         => Dict(
+		"strategy"       => strategy,
+		"target_spacing" => target_spacing,
+		"target_size"    => target_size
+	),
+		"normalisation"      => Dict(
+		"standardize" => standardize,
+		"normalize"   => normalize
+	),
+		"has_mask"           => true,
+	)
+end
+
+const AUGMENTATION_MENU = [
+	"Brightness transform",
+	"Contrast augmentation transform",
+	"Gamma transform",
+	"Gaussian noise transform",
+	"Rician noise transform",
+	"Mirror transform",
+	"Scale transform",
+	"Gaussian blur transform",
+	"Simulate low-resolution transform",
+	"Elastic deformation transform",
+]
+
+function _collect_aug_params(name::String)::Dict{String, Any}
+	p = Dict{String, Any}()
+	if name == "Brightness transform"
+		p["value"] = _float(_read("  value", "0.2"))
+		p["mode"]  = _read("  mode (additive/multiplicative)", "additive")
+
+	elseif name == "Contrast augmentation transform"
+		p["factor"] = _float(_read("  contrast factor", "1.5"))
+
+	elseif name == "Gamma transform"
+		p["gamma"] = _float(_read("  gamma", "2.0"))
+
+	elseif name == "Gaussian noise transform"
+		p["variance"] = _float(_read("  variance", "0.01"))
+
+	elseif name == "Rician noise transform"
+		p["variance"] = _float(_read("  variance", "0.01"))
+
+	elseif name == "Mirror transform"
+		p["axes"] = parse.(Int, split(_read("  axes, e.g. 1,2,3", "1,2,3"), ','))
+
+	elseif name == "Scale transform"
+		p["scale_factor"]      = _float(_read("  scale factor", "1.0"))
+		p["interpolator_enum"] = _read("  interpolator enum", "Linear_en")
+
+	elseif name == "Gaussian blur transform"
+		p["sigma"]           = _float(_read("  sigma", "1.0"))
+		p["kernel_size"]     = _int(_read("  kernel size", "5"))
+		p["shape"]           = _read("  shape (2D/3D)", "3D")
+		p["processing_unit"] = _read("  processing unit (GPU/CPU)", "GPU")
+
+	elseif name == "Simulate low-resolution transform"
+		p["blur_sigma"]       = _float(_read("  blur sigma", "1.0"))
+		p["kernel_size"]      = _int(_read("  kernel size", "5"))
+		p["downsample_scale"] = _float(_read("  downsample scale", "2.0"))
+
+	elseif name == "Elastic deformation transform"
+		p["strength"]          = _float(_read("  strength", "1.0"))
+		p["interpolator_enum"] = _read("  interpolator enum", "Linear_en")
+	end
+	return p
+end
+
+function _build_augmentation_config()::Dict{String, Any}
+	println("\n── Augmentation Parameters ──────────────────────────")
+	println("Available augmentations (enter numbers separated by commas, or leave blank):")
+	for (i, a) in enumerate(AUGMENTATION_MENU)
+		println("  $i. $a")
+	end
+
+	raw_sel = strip(readline())
+	if isempty(raw_sel)
+		return Dict{String, Any}("order" => [], "processing_unit" => "GPU", "augmentations" => [])
+	end
+
+	indices         = parse.(Int, split(raw_sel, ','))
+	processing_unit = _read("Global processing unit (GPU/CPU)", "GPU")
+
+	augmentations = []
+	for idx in indices
+		name = AUGMENTATION_MENU[idx]
+		println("\nConfiguring: $name")
+		p_rand = _float(_read("  p_rand (probability of applying)", "0.5"))
+		push!(augmentations, Dict{String, Any}(
+			"name"   => name,
+			"p_rand" => p_rand,
+			"params" => _collect_aug_params(name),
+		))
+	end
+
+	return Dict{String, Any}(
+		"order"           => [a["name"] for a in augmentations],
+		"processing_unit" => processing_unit,
+		"augmentations"   => augmentations,
+	)
+end
+
+function _build_learning_config()::Dict{String, Any}
+	println("\n── Learning / Pipeline Parameters ───────────────────")
+
+	use_json   = _bool(_read("Use a JSON file for train/val/test split?", "false"))
+	split_path = nothing
+	ratios     = [0.6, 0.2, 0.2]
+	if use_json
+		r = _read("  Path to split JSON", "")
+		split_path = isempty(r) ? nothing : r
+	else
+		raw    = _read("  Train/val/test ratios, e.g. 0.6,0.2,0.2", "0.6,0.2,0.2")
+		ratios = parse.(Float64, split(raw, ','))
+	end
+
+	cv_enabled = _bool(_read("Use n-fold cross-validation?", "false"))
+	n_folds    = cv_enabled ? _int(_read("  Number of folds", "5")) : 1
+
+	patch_enabled = _bool(_read("Use probabilistic patch oversampling?", "false"))
+	patch_size    = nothing
+	patch_prob    = 0.0
+	if patch_enabled
+		patch_size = _tuple3_int(_read("  Patch size, e.g. 64,64,64", "64,64,64"))
+		patch_prob = _float(_read("  Oversampling probability (0=random, 1=always foreground)", "0.5"))
+	end
+
+	invertible = _bool(_read("Invertible augmentations?", "false"))
+	shuffle    = _bool(_read("Shuffle channels?", "false"))
+	metric     = _read("Evaluation metric", "dice")
+	use_lcc    = _bool(_read("Use largest connected component post-processing?", "false"))
+	n_lcc      = use_lcc ? _int(_read("  Number of components", "1")) : 1
+
+	class_json = let r = _read("Path to class JSON (or leave blank)", "")
+		isempty(r) ? nothing : r
+	end
+
+	add_jsons = String[]
+	while true
+		r = _read("Additional JSON path (leave blank to stop)", "")
+		isempty(r) && break
+		push!(add_jsons, r)
+	end
+
+	return Dict{String, Any}(
+		"split"                       => Dict("json_path" => split_path, "ratios" => ratios),
+		"cross_val"                   => Dict("enabled" => cv_enabled, "n_folds" => n_folds),
+		"patch"                       => Dict("enabled" => patch_enabled, "size" => patch_size,
+		"oversampling_probability" => patch_prob),
+		"invertible_augmentations"    => invertible,
+		"shuffle"                     => shuffle,
+		"metric"                      => metric,
+		"largest_connected_component" => use_lcc,
+		"n_lcc"                       => n_lcc,
+		"class_json_path"             => class_json,
+		"additional_json_paths"       => add_jsons,
+	)
+end
+
+function _build_model_config()::Dict{String, Any}
+	println("\n── Model Parameters ─────────────────────────────────")
+
+	optimizer  = _read("Optimizer (e.g. Adam, SGD)", "Adam")
+	opt_args   = parse_optimizer_args(_read("Optimizer args, e.g. lr=0.001,weight_decay=1e-5", "lr=0.001"))
+	num_epochs = _int(_read("Number of epochs", "50"))
+	loss       = _read("Loss function (e.g. dice, bce, l1, Custom)", "dice")
+	loss == "Custom" && println("  ℹ  Pass your custom loss directly to Main_loop.")
+
+	es_enabled = _bool(_read("Use early stopping?", "false"))
+	early_stopping = if es_enabled
+		Dict{String, Any}(
+			"enabled"   => true,
+			"patience"  => _int(_read("  Patience", "5")),
+			"min_delta" => _float(_read("  Min delta", "0.001")),
+			"monitor"   => _read("  Monitor metric", "val_loss"),
+		)
+	else
+		Dict{String, Any}("enabled" => false, "patience" => 5,
+			"min_delta" => 0.001, "monitor" => "val_loss")
+	end
+
+	return Dict{String, Any}(
+		"optimizer"      => optimizer,
+		"optimizer_args" => opt_args,
+		"num_epochs"     => num_epochs,
+		"loss"           => loss,
+		"early_stopping" => early_stopping,
+	)
+end
+
+# ────────────────────────────────────────────────────────────
+# Public API
+# ────────────────────────────────────────────────────────────
+
 """
-`create_config_extended(save_path::String, config_name="config.json")::String`
+	create_config(save_path, config_name="config.json") -> String
 
-Generates a comprehensive configuration file for a medical image segmentation pipeline in JSON format, allowing extensive customization of data processing, augmentation, and model training parameters.
-
-# Arguments
-- `save_path`: The directory path where the configuration file will be saved.
-- `config_name`: The name of the configuration file to be saved, defaulting to "config.json".
-
-# Returns
-- `String`: The path to the saved configuration file.
-
-# Description
-This function prompts the user through the command line to input various parameters related to data handling, augmentation strategies, model configuration, and learning specifics.
-It supports dynamic input for batch sizes, channel dimensions, augmentation types, model optimizer settings, and much more.
-Each parameter has default values, and the function uses conditional logic to handle optional and dependent parameters.
-After gathering all inputs, it compiles them into a structured dictionary, converts this dictionary to a JSON string, and saves it to the specified file path.
-
-# Errors
-Throws an error if file saving fails or if user input is incorrectly formatted for expected data types.
+Interactively build a pipeline config, save it as pretty-printed JSON,
+and return the full file path.
 """
-function create_config_extended(save_path::String, config_name="config.json")
-    config = Dict()
-    println("Enter data parameters:")
-
-
-    println("Enter the channel size for images [default: 4]:")
-    channel_size_imgs_input = readline()
-    channel_size_imgs = isempty(channel_size_imgs_input) ? 4 : parse(Int, channel_size_imgs_input)
-
-    println("Enter the channel size for masks [default: 4]:")
-    channel_size_masks_input = readline()
-    channel_size_masks = isempty(channel_size_masks_input) ? 4 : parse(Int, channel_size_masks_input)
-
-
-    println("Resample to first image? (true/false): [default: false]")
-    resample_to_target_input = readline()
-    resample_to_target = isempty(resample_to_target_input) ? false : parse(Bool, resample_to_target_input)
-    
-    println("Enter the batch size (batch_size) [default: 4]:")
-    batch_size_input = readline()
-    batch_size = isempty(batch_size_input) ? 4 : parse(Int, batch_size_input)
-    println("Should the batch be complete if not fully filled? (true/false): [default: false]")
-    batch_complete_input = readline()
-    batch_complete = isempty(batch_complete_input) ? false : parse(Bool, batch_complete_input)
-
-    println("Resample spacing? (set/avg/median): [default: avg]")
-    resample_to_spacing_input = readline()
-    resample_to_spacing = isempty(resample_to_spacing_input) ? "avg" : resample_to_spacing_input
-    if resample_to_spacing == "set"
-        println("Enter target spacing (e.g., (1.0, 1.0, 1.0)): [default: (1.0, 1.0, 1.0)]")
-        target_spacing_input = readline()
-        target_spacing = isempty(target_spacing_input) ? (1.0, 1.0, 1.0) : string_to_tuple(target_spacing_input)
-    else
-        target_spacing = nothing
-    end
-
-    println("Should the images be resize using average per channel or do you want to specify the size for all images? (avg/(x,y,z)): [default: avg]")
-    resample_size_input = readline()
-    resample_size =
-    isempty(resample_size_input) || resample_size_input == "avg" ?
-    "avg" :
-    string_to_tuple(resample_size_input)
-    
-
-    println("Standardization? (true/false): [default: false]")
-    standardization_input = readline()
-    standardization = isempty(standardization_input) ? false : parse(Bool, standardization_input)
-
-    println("Normalization? (true/false): [default: false]")
-    normalization_input = readline()
-    normalization = isempty(normalization_input) ? false : parse(Bool, normalization_input)
-
-    data_params = Dict(
-        "batch_size" => batch_size,
-        "batch_complete" => batch_complete,
-        "channel_size_imgs" => channel_size_imgs,
-        "channel_size_masks" => channel_size_masks,
-        "resample_to_target" => resample_to_target,
-        "resample_to_spacing" => resample_to_spacing,
-        "target_spacing" => target_spacing,
-        "resample_size" => resample_size,
-        "standardization" => standardization,
-        "normalization" => normalization,
-        "has_mask" => true
-    )
-
-    # Augmentation Parameters
-    augmentations = [
-        "Brightness transform",
-        "Contrast augmentation transform",
-        "Gamma transform",
-        "Gaussian noise transform",
-        "Rician noise transform",
-        "Mirror transform",
-        "Scale transform",
-        "Gaussian blur transform",
-        "Simulate low-resolution transform",
-        "Elastic deformation transform"
-    ]
-    println("Select the augmentations you want to apply by entering their numbers separated by commas. The order will affect the processing sequence.")
-    for (index, aug) in enumerate(augmentations)
-        println("$(index). $aug")
-    end
-    selected_indices_input = readline()
-    if isempty(selected_indices_input)
-        selected_indices = []
-        selected_order = []
-    else
-        # selected_indices = parse.(Int, split(selected_indices_input, ","))
-        # selected_order = [augmentations[i] for i in selected_indices]
-        parsed_indices = parse.(Int, split(selected_indices_input, ","))
-        selected_indices = filter(i -> 1 ≤ i ≤ length(augmentations), parsed_indices)
-        selected_order = [augmentations[i] for i in selected_indices]
-        
-    end    
-# Collect Augmentation-Specific Parameters
-    aug_params = Dict()
-    for idx in selected_indices
-        aug_name = augmentations[idx]
-        println("Configuring $aug_name:")
-        aug_config = Dict()
-
-        # Based on the augmentation, collect specific parameters
-        if aug_name == "Brightness transform"
-            println("Enter value for 'value' [default: 0.2]:")
-            value_input = readline()
-            value = isempty(value_input) ? 0.2 : parse(Float32, value_input)
-
-            println("Enter mode ('additive'/'multiplicative') [default: 'additive']:")
-            mode_input = readline()
-            mode = isempty(mode_input) ? "additive" : mode_input
-
-            aug_config["value"] = value
-            aug_config["mode"] = mode
-
-        elseif aug_name == "Contrast augmentation transform"
-            println("Enter factor for contrast [default: 1.5]:")
-            factor_input = readline()
-            factor = isempty(factor_input) ? 1.5 : parse(Float32, factor_input)
-
-            aug_config["factor"] = factor
-
-        elseif aug_name == "Gamma transform"
-            println("Enter gamma value [default: 2.0]:")
-            gamma_input = readline()
-            gamma = isempty(gamma_input) ? 2.0 : parse(Float32, gamma_input)
-
-            aug_config["gamma"] = gamma
-
-        elseif aug_name == "Gaussian noise transform"
-            println("Enter variance for Gaussian noise [default: 0.01]:")
-            variance_input = readline()
-            variance = isempty(variance_input) ? 0.01 : parse(Float32, variance_input)
-
-            aug_config["variance"] = variance
-
-        elseif aug_name == "Rician noise transform"
-            println("Enter variance for Rician noise [default: 0.01]:")
-            variance_input = readline()
-            variance = isempty(variance_input) ? 0.01 : parse(Float32, variance_input)
-
-            aug_config["variance"] = variance
-
-        elseif aug_name == "Mirror transform"
-            println("Enter axes to mirror (e.g., 1,2,3) [default: 1,2,3]:")
-            axes_input = readline()
-            axes = isempty(axes_input) ? (1,2,3) : Tuple(parse.(Int, split(axes_input, ",")))
-
-            aug_config["axes"] = axes
-
-        elseif aug_name == "Scale transform"
-            println("Enter scale factor [default: 1.0]:")
-            scale_factor_input = readline()
-            scale_factor = isempty(scale_factor_input) ? 1.0 : parse(Float32, scale_factor_input)
-
-            println("Enter interpolator enum (e.g., 'Linear_en') [default: 'Linear_en']:")
-            interpolator_enum_input = readline()
-            interpolator_enum = isempty(interpolator_enum_input) ? "Linear_en" : interpolator_enum_input
-
-            aug_config["scale_factor"] = scale_factor
-            aug_config["interpolator_enum"] = interpolator_enum
-
-        elseif aug_name == "Gaussian blur transform"
-            println("Enter sigma [default: 1.0]:")
-            sigma_input = readline()
-            sigma = isempty(sigma_input) ? 1.0 : parse(Float32, sigma_input)
-
-            println("Enter kernel size [default: 5]:")
-            kernel_size_input = readline()
-            kernel_size = isempty(kernel_size_input) ? 5 : parse(Int, kernel_size_input)
-
-            println("Enter shape ('2D'/'3D') [default: '3D']:")
-            shape_input = readline()
-            shape = isempty(shape_input) ? "3D" : shape_input
-
-            println("Enter processing unit ('GPU'/'CPU') [default: 'GPU']:")
-            processing_unit_input = readline()
-            processing_unit_aug = isempty(processing_unit_input) ? "GPU" : processing_unit_input
-
-            aug_config["sigma"] = sigma
-            aug_config["kernel_size"] = kernel_size
-            aug_config["shape"] = shape
-            aug_config["processing_unit"] = processing_unit_aug
-
-        elseif aug_name == "Simulate low-resolution transform"
-            println("Enter blur sigma [default: 1.0]:")
-            blur_sigma_input = readline()
-            blur_sigma = isempty(blur_sigma_input) ? 1.0 : parse(Float32, blur_sigma_input)
-
-            println("Enter kernel size [default: 5]:")
-            kernel_size_input = readline()
-            kernel_size = isempty(kernel_size_input) ? 5 : parse(Int, kernel_size_input)
-
-            println("Enter downsample scale [default: 2.0]:")
-            downsample_scale_input = readline()
-            downsample_scale = isempty(downsample_scale_input) ? 2.0 : parse(Float32, downsample_scale_input)
-
-            aug_config["blur_sigma"] = blur_sigma
-            aug_config["kernel_size"] = kernel_size
-            aug_config["downsample_scale"] = downsample_scale
-
-        elseif aug_name == "Elastic deformation transform"
-            println("Enter strength [default: 1.0]:")
-            strength_input = readline()
-            strength = isempty(strength_input) ? 1.0 : parse(Float32, strength_input)
-
-            println("Enter interpolator enum (e.g., 'Linear_en') [default: 'Linear_en']:")
-            interpolator_enum_input = readline()
-            interpolator_enum = isempty(interpolator_enum_input) ? "Linear_en" : interpolator_enum_input
-
-            aug_config["strength"] = strength
-            aug_config["interpolator_enum"] = interpolator_enum
-
-        end
-
-        println("Enter probability of applying $aug_name (p_rand) [default: 0.5]:")
-        p_rand_input = readline()
-        aug_config["p_rand"] = isempty(p_rand_input) ? 0.5 : parse(Float32, p_rand_input)
-
-        aug_params[aug_name] = aug_config
-    end
-
-    # After loop - collect processing unit
-    println("Enter the processing unit (GPU/CPU) [default: CPU]:")
-    processing_unit_input = readline()
-    processing_unit = isempty(processing_unit_input) ? "CPU" : processing_unit_input
-
-    augmentation_params = Dict(
-        "order" => selected_order,
-        "augmentations" => aug_params,
-        "processing_unit" => processing_unit
-    )
-
-    # Initialize variables to avoid UndefVarError
-    Train_Val_Test_JSON = false
-    class_JSON_path = false
-    additional_JSON_path = false
-    n_folds = 1
-    n_lcc = nothing
-    println("What metric for evaluation? (dice/iou/etc): [default: dice]")
-    metric_input = readline()
-    metric = isempty(metric_input) ? "dice" : metric_input
-
-    println("Do you whant to use largest connected component for validation and testing? (true/false): [default: false]")
-    largest_connected_component_input = readline()
-    largest_connected_component = isempty(largest_connected_component_input) ? false : parse(Bool, largest_connected_component_input)
-    if largest_connected_component
-        println("Enter the number of components: [default: 1]")
-        n_lcc_input = readline()
-        n_lcc = isempty(n_lcc_input) ? 1 : parse(Int, n_lcc_input)
-    end
-
-    println("Use n-fold cross-validation? (true/false): [default: false]")
-    n_cross_val_input = readline()
-    n_cross_val = isempty(n_cross_val_input) ? false : parse(Bool, n_cross_val_input)
-    if n_cross_val
-        println("Enter the number of folds (n): [default: 5]")
-        n_folds_input = readline()
-        n_folds = isempty(n_folds_input) ? 5 : parse(Int, n_folds_input)
-    end
-
-    println("Use probabilistic oversampling with patch data loading? (true/false): [default: false]")
-    patch_probabilistic_oversampling_input = readline()
-    patch_probabilistic_oversampling = isempty(patch_probabilistic_oversampling_input) ? false : parse(Bool, patch_probabilistic_oversampling_input)
-
-    patch_size = nothing
-    oversampling_probability = nothing
-    if patch_probabilistic_oversampling == true
-        println("Enter patch size (e.g., (64, 64, 64)): [default: (64, 64, 64)]")
-        patch_size_input = readline()
-        patch_size = isempty(patch_size_input) ? (64, 64, 64) : string_to_tuple(patch_size_input)
-        
-        println("Set the oversampling probability from 0, indicating completely random patches, to 1, where each patch will contain relevant information. : [default: 0.5]")
-        oversampling_probability_input = readline()
-        oversampling_probability = isempty(oversampling_probability_input) ? 0.5 : parse(Float32, oversampling_probability_input)
-    end
-
-
-    println("Do you have specific collections in JSON: train, validation, test (false/path): [default: false]")
-    is_test_train_validation_collections_input = readline()
-    test_train_validation = nothing
-    is_test_train_validation_collections = isempty(is_test_train_validation_collections_input) ? false : parse(Bool, is_test_train_validation_collections_input)
-    if is_test_train_validation_collections
-        println("Enter path to JSON for Traing, Validation and Test data")
-        Train_Val_Test_JSON_input = readline()
-        Train_Val_Test_JSON = isempty(Train_Val_Test_JSON_input) ? false : Train_Val_Test_JSON_input
-    else
-        println("Set test% train% validation% (e.g., 0.6, 0.2, 0.2): [default: 0.6, 0.2, 0.2]")
-        test_train_validation_input = readline()
-        test_train_validation = isempty(test_train_validation_input) ? (0.6, 0.2, 0.2) : string_to_tuple(test_train_validation_input)
-    end
-
-    println("Do you have specific class collections (false/path): [default: false]")
-    is_class_collections_input = readline()
-    is_class_collections = isempty(is_class_collections_input) ? false : parse(Bool, is_class_collections_input)
-    if is_class_collections
-        println("Enter path to JSON for class data")
-        class_JSON_path_input = readline()
-        class_JSON_path = isempty(class_JSON_path_input) ? false : class_JSON_path_input
-    end
-
-    println("Invertible augmentations? (true/false): [default: false]")
-    invertible_augmentations_input = readline()
-    invertible_augmentations = isempty(invertible_augmentations_input) ? false : parse(Bool, invertible_augmentations_input)
-
-    println("Should the channel be shuffle? (true/false): [default: false]")
-    shuffle_input = readline()
-    shuffle = isempty(shuffle_input) ? false : parse(Bool, shuffle_input)
-
-    println("Do you have additional JSONs files (false/path): [default: false]")
-    additional_JSON_input = readline()
-    if isempty(additional_JSON_input) || additional_JSON_input == "false"
-    additional_JSON = false
-    else
-        additional_JSON = true
-        additional_JSON_path = additional_JSON_input
-    end
-    
-    learning_params = Dict(
-        "invertible_augmentations" => invertible_augmentations,
-        "Train_Val_Test_JSON" => Train_Val_Test_JSON,
-        "n_cross_val" => n_cross_val,
-        "n_folds" => n_folds,
-        "test_train_validation" => test_train_validation,
-        "class_JSON_path" => class_JSON_path,
-        "additional_JSON_path" => additional_JSON_path,
-        "shuffle" => shuffle,
-        "patch_probabilistic_oversampling" => patch_probabilistic_oversampling,
-        "patch_size" => patch_size,
-        "metric" => metric,
-        "oversampling_probability" => oversampling_probability,
-        "largest_connected_component" => largest_connected_component,
-        "n_lcc" => n_lcc
-    )
-
-# Model Parameters
-    println("Enter model parameters:")
-    println("Optimizer name (e.g., Adam): [default: Adam]")
-    optimizer_name_input = readline()
-    optimizer_name = isempty(optimizer_name_input) ? "Adam" : optimizer_name_input
-
-    println("Loss function name (e.g., l1, Custom): [default: l1]")
-    loss_function_name_input = readline()
-    loss_function_name = isempty(loss_function_name_input) ? "l1" : loss_function_name_input
-
-    if loss_function_name == "Custom"
-        println("You need to use your loss function as argument in Main_loop.")
-    end
-
-    println("Optimizer arguments (e.g., lr=0.001): [default: lr=0.001]")
-    optimizer_args_input = readline()
-    optimizer_args = isempty(optimizer_args_input) ? "lr=0.001" : optimizer_args_input
-
-    println("Number of epochs (num_epochs): [default: 50]")
-    num_epochs_input = readline()
-    num_epochs = isempty(num_epochs_input) ? 50 : parse(Int, num_epochs_input)
-
-    println("Use early stopping? (true/false): [default: false]")
-    early_stopping_input = readline()
-    early_stopping = isempty(early_stopping_input) ? false : parse(Bool, early_stopping_input)
-
-    if early_stopping
-        println("Enter patience for early stopping: [default: 5]")
-        patience_input = readline()
-        patience = isempty(patience_input) ? 5 : parse(Int, patience_input)
-        println("Enter min. delta for early stopping: [default: 0.001]")
-        early_stopping_min_delta_input = readline()
-        early_stopping_min_delta = isempty(early_stopping_min_delta_input) ? 0.001 : parse(Float64, early_stopping_min_delta_input)
-        println("Enter metric for early stopping: [default: val_loss]")
-        early_stopping_metric_input = readline()
-        early_stopping_metric = isempty(early_stopping_metric_input) ? "val_loss" : early_stopping_metric_input
-
-    else
-        patience = nothing
-        early_stopping_min_delta = nothing
-        early_stopping_metric = nothing
-    end
-
-    model_params = Dict(
-        "optimizer_name" => optimizer_name,
-        "optimizer_args" => optimizer_args,
-        "num_epochs" => num_epochs,
-        "early_stopping" => early_stopping,
-        "patience" => patience,
-        "early_stopping_min_delta" => early_stopping_min_delta,
-        "early_stopping_metric" => early_stopping_metric,
-        "loss_function_name" => loss_function_name
-    )
-
-    # Combine all parameters into config
-    config["data"] = data_params
-    config["augmentation"] = augmentation_params
-    config["learning"] = learning_params
-    config["model"] = model_params
-
-    # Save to JSON
-    json_string = JSON.json(config, 4)
-
-    # Save to file
-    json_path = joinpath(save_path, config_name)
-    open(json_path, "w") do file
-        print(file, json_string)
-    end
-    println("Configuration saved to $json_path")
-    return json_path
+function create_config(save_path::String, config_name::String = "config.json")::String
+	config = Dict{String, Any}(
+		"data"         => _build_data_config(),
+		"augmentation" => _build_augmentation_config(),
+		"learning"     => _build_learning_config(),
+		"model"        => _build_model_config(),
+	)
+
+	json_path = joinpath(save_path, config_name)
+	open(json_path, "w") do f
+		print(f, JSON.json(config, 4))
+	end
+	println("\nConfiguration saved to $json_path")
+	return json_path
 end
 
 """
-`modify_config(config::Dict{String, Any}, action::Symbol, path::Vector{String}, value=nothing)::Dict{String, Any}`
+	modify_config(config, action, path, value=nothing) -> Dict
 
-Modifies a configuration dictionary based on specified actions like adding, modifying, or removing entries.
-
-# Arguments
-- `config`: The configuration dictionary to modify.
-- `action`: The action to perform (`:add`, `:modify`, `:remove`).
-- `path`: A vector of strings specifying the path to the target configuration key.
-- `value`: The new value to set at the configuration key, necessary for `:add` and `:modify` actions.
-
-# Returns
-- `Dict{String, Any}`: The modified configuration dictionary.
-
-# Description
-This function navigates through the nested configuration dictionary to a specified key defined by the `path` and modifies it according to the `action`. It supports dynamic paths and provides user feedback through the console on the success or failure of the operation. It's robust against non-existent paths and actions, ensuring the stability of configuration modifications.
-
-# Errors
-Prints error messages directly to the console if the specified path is incorrect, the action is invalid, or required values for actions are not provided. 
+Navigate `config` along `path` (vector of string keys) and apply `action`:
+- `:add`    — insert a new key (warns if already present)
+- `:modify` — update an existing key (warns if absent)
+- `:remove` — delete a key (warns if absent)
 """
+function modify_config(
+	config::Dict{String, Any},
+	action::Symbol,
+	path::Vector{String},
+	value = nothing,
+)::Dict{String, Any}
 
-function modify_config(config::Dict{String, Any}, action::Symbol, path::Vector{String}, value=nothing)
-    current = config
+	current = config
+	for i in 1:(length(path)-1)
+		key = path[i]
+		if !haskey(current, key)
+			action === :add || (@warn "Key $(join(path[1:i], ".")) does not exist."; return config)
+			current[key] = Dict{String, Any}()
+		end
+		next = current[key]
+		isa(next, Dict{String, Any}) || (@warn "Non-dict at $(join(path[1:i], "."))."; return config)
+		current = next
+	end
 
-    if isempty(path)
-        println("Error: path cannot be empty.")
-        return config
-    end
+	key  = path[end]
+	full = join(path, ".")
 
-    for i in 1:length(path)-1
-        key = path[i]
-        if !haskey(current, key)
-            if action == :add
-                current[key] = Dict{String, Any}()
-            else
-                println("Key $(join(path[1:i], ".")) does not exist. Cannot proceed with action: $action.")
-                return config
-            end
-        end
-        current = current[key]
-        if !(current isa Dict{String, Any})
-            println("Cannot navigate through non-dictionary at path $(join(path[1:i], "."))")
-            return config
-        end
-    end
-    key = path[end]
-    if action == :add
-        if haskey(current, key)
-            println("Warning: Key $(join(path, ".")) already exists. Use :modify action to change the value.")
-        else
-            current[key] = value
-            println("Added key $(join(path, ".")) with value: $value")
-        end
-    elseif action == :modify
-        if haskey(current, key)
-            current[key] = value
-            println("Modified key $(join(path, ".")) to value: $value")
-        else
-            println("Key $(join(path, ".")) does not exist. Cannot modify a non-existent key.")
-        end
-    elseif action == :remove
-        if haskey(current, key)
-            delete!(current, key)
-            println("Removed key $(join(path, "."))")
-        else
-            println("Key $(join(path, ".")) not found. Cannot remove a non-existent key.")
-        end
-    else
-        error("Unknown action: $action. Valid actions are :add, :remove, or :modify.")
-    end
-    return config
+	if action === :add
+		haskey(current, key) ?
+		@warn("$full already exists; use :modify to overwrite.") :
+		(@info("Added $full = $(repr(value))"); current[key] = value)
+	elseif action === :modify
+		haskey(current, key) ?
+		(@info("Modified $full = $(repr(value))"); current[key] = value) :
+		@warn("$full not found; cannot modify.")
+	elseif action === :remove
+		haskey(current, key) ?
+		(@info("Removed $full"); delete!(current, key)) :
+		@warn("$full not found; cannot remove.")
+	else
+		error("Unknown action $(repr(action)). Valid: :add, :modify, :remove")
+	end
+
+	return config
 end
