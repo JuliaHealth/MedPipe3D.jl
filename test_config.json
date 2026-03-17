@@ -1,0 +1,57 @@
+{
+    "augmentation": {
+        "order": [
+            "Brightness transform",
+            "Contrast augmentation transform",
+            "Gamma transform",
+            "Gaussian noise transform",
+            "Rician noise transform",
+            "Mirror transform",
+            "Scale transform",
+            "Gaussian blur transform",
+            "Simulate low-resolution transform",
+            "Elastic deformation transform"
+        ],
+        "p_rand": 1.0,
+        "augmentations": {
+            "Brightness transform": {
+                "value": 0.1,
+                "mode": "additive"
+            },
+            "Contrast augmentation transform": {
+                "factor": 1.2
+            },
+            "Gamma transform": {
+                "gamma": 0.8
+            },
+            "Gaussian noise transform": {
+                "variance": 0.05
+            },
+            "Rician noise transform": {
+                "variance": 0.05
+            },
+            "Mirror transform": {
+                "axes": "(1, 2)"
+            },
+            "Scale transform": {
+                "scale_factor": 0.9,
+                "interpolator_enum": "Linear_en"
+            },
+            "Gaussian blur transform": {
+                "sigma": 1.0,
+                "shape": "3D",
+                "kernel_size": 3,
+                "processing_unit": "CPU"
+            },
+            "Simulate low-resolution transform": {
+                "blur_sigma": 0.5,
+                "kernel_size": 3,
+                "downsample_scale": 0.5
+            },
+            "Elastic deformation transform": {
+                "strength": 0.1,
+                "interpolator_enum": "Linear_en"
+            }
+        }
+    }
+}
