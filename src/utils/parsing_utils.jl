@@ -80,19 +80,7 @@ function parse_optimizer_args(s::String)::Dict{String, Any}
 end
 
 # ────────────────────────────────────────────────────────────
-# Interactive readline helper  (new — from config refactor)
+# (Interactive helpers previously lived here; configuration.jl
+# now owns all stdin / prompt logic so parsing_utils remains
+# pure and side-effect free.)
 # ────────────────────────────────────────────────────────────
-
-"""
-	prompt(message, default) -> String
-
-Print `message [default: <default>]: ` and return the trimmed user input,
-or `string(default)` if the user presses Enter without typing anything.
-
-Used throughout the config builder to keep prompt/readline/default logic in one place.
-"""
-function prompt(message::String, default)::String
-	print("$message [default: $(repr(default))]: ")
-    raw = String(strip(readline()))
-	isempty(raw) ? string(default) : raw
-end

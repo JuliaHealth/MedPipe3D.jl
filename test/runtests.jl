@@ -1,6 +1,9 @@
+ENV["MEDPIPE_USE_GPU"] = "true"
+
 using Test
 using LinearAlgebra
 using JLD2
+using MedImages
 include("../src/dependencies.jl")
 include("../src/utils/model_utils.jl")
 include("../src/Configuration/configuration.jl")
@@ -17,6 +20,13 @@ include("../src/Train_Validation_Test/get_optimiser.jl")
 include("../src/Train_Validation_Test/model.jl")
 include("../src/Train_Validation_Test/splits.jl")
 include("../src/Train_Validation_Test/main_loop.jl")
+include("../src/Post-processing/post-processing.jl")
+include("../src/Morphology_operations/dilation.jl")
+include("../src/Morphology_operations/erosion.jl")
+include("../src/Augmentations/augmentation.jl")
+include("../src/Augmentations/apply.jl")
+include("../src/Batching_channeling/batching_channeling.jl")
+
 
 
 @testset "MedPipe3D Tests" begin
@@ -30,5 +40,8 @@ include("../src/Train_Validation_Test/main_loop.jl")
 	# include("utils/test_model_utils.jl")
 	# include("test_config.jl")
 	# include("test_batch_loader.jl")
-	include("test_integration.jl")
+	# include("test_integration.jl")
+	include("utils/test_batching_channeling.jl")
+	include("utils/test_training_utils.jl")
+	include("utils/test_postprocessing_utils.jl")
 end

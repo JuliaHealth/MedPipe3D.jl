@@ -28,6 +28,91 @@ function infer_model(tstate, model, data)
 end
 
 # ────────────────────────────────────────────────────────────
+# Test-time augmentation (invertible)
+# ────────────────────────────────────────────────────────────
+
+"""
+    infer_model_tta(tstate, model, data, config) -> (mean_mask, std_mask, st)
+
+Run test-time augmentation (TTA) when enabled by config:
+
+- Applies an **invertible spatial flip** to the model input (dims 1–3),
+  runs inference, then applies the **inverse flip** to the model output.
+- Repeats inference `n` times when `config["learning"]["n_invertible"]` is provided.
+- Returns the per-voxel **mean** and **standard deviation** of the predicted masks.
+
+Config keys:
+- `config["learning"]["invertible_augmentations"]::Bool` (default false)
+- `config["learning"]["n_invertible"]::Int` (default 1)
+
+Notes:
+- The model output is converted to probabilities with a sigmoid,
+  matching the rest of the pipeline's Dice metric implementation.
+"""
+function infer_model_tta(tstate, model, data, config::Dict)
+	enabled = get(config["learning"], "invertible_augmentations", false)
+	n_raw   = get(config["learning"], "n_invertible", 1)
+	n       = max(1, Int(n_raw))
+
+	# Fast path: single inference, std=0
+	if !enabled || n == 1
+		y_pred, st = infer_model(tstate, model, data)
+		y_prob     = 1 ./ (1 .+ exp.(-Array(y_pred)))
+		std_prob   = zeros(eltype(y_prob), size(y_prob))
+		return y_prob, std_prob, st
+	end
+
+	# Cycle through a fixed set of perfectly invertible transforms.
+	# Each is a tuple of (flip_x, flip_y, flip_z). The inverse is the same flip.
+	flip_bank = (
+		(false, false, false),
+		(true,  false, false),
+		(false, true,  false),
+		(false, false, true),
+		(true,  true,  false),
+		(true,  false, true),
+		(false, true,  true),
+		(true,  true,  true),
+	)
+
+	apply_flip_5d = function (x::AbstractArray, flips::NTuple{3, Bool})
+		xf = x
+		flips[1] && (xf = reverse(xf, dims = 1))
+		flips[2] && (xf = reverse(xf, dims = 2))
+		flips[3] && (xf = reverse(xf, dims = 3))
+		return xf
+	end
+
+	mean_prob = nothing
+	m2        = nothing
+	st_last   = nothing
+
+	for i in 1:n
+		flips = flip_bank[mod1(i, length(flip_bank))]
+
+		x_aug = apply_flip_5d(data, flips)
+		y_pred, st = infer_model(tstate, model, x_aug)
+		st_last = st
+
+		# Convert to CPU prob mask for stable aggregation
+		y_prob = 1 ./ (1 .+ exp.(-Array(y_pred)))
+		y_prob = apply_flip_5d(y_prob, flips)  # inverse == forward for flips
+
+		if mean_prob === nothing
+			mean_prob = copy(y_prob)
+			m2        = zeros(eltype(y_prob), size(y_prob))
+		else
+			δ = y_prob .- mean_prob
+			mean_prob .+= δ ./ i
+			m2 .+= δ .* (y_prob .- mean_prob)
+		end
+	end
+
+	std_prob = sqrt.(m2 ./ (n - 1))
+	return mean_prob, std_prob, st_last
+end
+
+# ────────────────────────────────────────────────────────────
 # Tensor inspection
 # ────────────────────────────────────────────────────────────
 

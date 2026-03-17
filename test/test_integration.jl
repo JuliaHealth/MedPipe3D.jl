@@ -1,5 +1,4 @@
 ENV["MEDPIPE_INTEGRATION_TESTS"] = "true"
-ENV["MEDPIPE_USE_GPU"] = "true"
 
 using Test
 using HDF5
@@ -91,10 +90,11 @@ Mock version of the test-set evaluation phase. Takes the outputs from
 function main_loop_test_2(test_groups, hdf5_path, model, tstate, config)
 	println("Running main_loop_test_2 evaluation...")
 	test_metrics = []
+	test_std     = []
 
 	h5open(hdf5_path, "r") do h5
 		# Call your newly fixed evaluate_test_set_test function
-		test_metrics = evaluate_test_set_test(test_groups, h5, model, tstate, config)
+		test_metrics, test_std = evaluate_test_set_test(test_groups, h5, model, tstate, config)
 	end
 
 	# Return exactly what test_integration.jl expects:

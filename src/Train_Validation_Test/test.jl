@@ -38,6 +38,7 @@ capturing and returning performance metrics. Saves predictions directly to HDF5.
 function evaluate_test_set_test(test_groups, h5, model, tstate, config)
 	println("Evaluating test set...")
 	all_test_metrics = []
+	all_test_std     = []
 
 	# Disable oversampling during test evaluation
 	config["learning"]["patch_probabilistic_oversampling"] = false
@@ -47,18 +48,24 @@ function evaluate_test_set_test(test_groups, h5, model, tstate, config)
 		test_data, test_label, attributes = fetch_and_preprocess_data([test_group], h5, config)
 
 		# 2. Run patch-based inference (handles spatial slicing and reconstruction)
-		results, test_metrics = evaluate_patches(test_data, test_label, tstate, model, config)
+		# If invertible TTA is enabled, this returns both mean and std volumes.
+		results_mean, results_std, test_metrics = evaluate_patches(test_data, test_label, tstate, model, config)
 
 		# 3. Process ensemble results WITH the ground truth labels to calculate final metric
-		y_pred, metr = process_results_test(results, test_metrics, test_label, config)
+		y_pred, metr = process_results_test(results_mean, test_metrics, test_label, config)
+
+		# Also aggregate std across ensemble members (same aggregation as mean: element-wise average)
+		# This yields a stable per-voxel uncertainty estimate even when multiple ensemble members exist.
+		y_std = isempty(results_std) ? nothing : mean(results_std)
 
 		# 4. Save predictions directly to the open HDF5 file
 		save_results_test(y_pred, attributes, config, h5)
 
 		push!(all_test_metrics, metr)
+		push!(all_test_std, y_std)
 	end
 
-	return all_test_metrics
+	return all_test_metrics, all_test_std
 end
 """
 `evaluate_patches(test_data, test_label, tstate, model, config, axis, angle)`
@@ -82,11 +89,19 @@ function evaluate_patches(test_data, test_label, tstate, model, config, axis = (
 	test_data_cpu  = Array(test_data)
 	test_label_cpu = Array(test_label)
 
-	results      = []
+	# For backward compatibility we still return a `results` vector, but each entry
+	# is now the *mean* prediction volume from one evaluation pass.
+	# When invertible TTA is enabled, we also return a parallel std volume.
+	results_mean = []
+	results_std  = []
 	test_metrics = []
 	tstates      = [tstate]
 
-	for _ in get(config["learning"], "n_invertible", 1:1)
+	# Optional invertible test-time augmentations (TTA)
+	# - When enabled, `infer_model_tta` runs inference n times per patch and returns
+	#   mean/std masks after inverse transforms.
+	# - When disabled, it falls back to a single pass and std=0.
+	for _ in 1:max(1, Int(get(config["learning"], "n_invertible", 1)))
 		# Use the CPU version of the data here
 		# (Note: If you renamed this to rotate_5d_batch earlier, use that name here!)
 		data = rotate_5d_batch(test_data_cpu, axis, angle)
@@ -103,32 +118,37 @@ function evaluate_patches(test_data, test_label, tstate, model, config, axis = (
 			coordinates = [p[1] for p in idx_and_patches]
 			patch_data = [p[2] for p in idx_and_patches]
 
-			patch_results = []
+			patch_mean_results = []
+			patch_std_results  = []
 			for patch in patch_data
-				# Inference runs on GPU inside this call
-				y_pred_patch, _ = infer_model(tstate_curr, model, patch)
-
-				# 2. BRING TO HOST CPU: Pull the GPU prediction back so it can be 
-				# safely stitched into the CPU `reconstructed` array
-				push!(patch_results, Array(y_pred_patch))
+				# Inference runs on GPU inside infer_model/infer_model_tta,
+				# but aggregation is returned on host CPU for safe stitching.
+				y_mean, y_std, _ = infer_model_tta(tstate_curr, model, patch, config)
+				push!(patch_mean_results, y_mean)
+				push!(patch_std_results,  y_std)
 			end
 
-			idx_and_y_pred = collect(zip(coordinates, patch_results))
+			idx_and_y_mean = collect(zip(coordinates, patch_mean_results))
+			idx_and_y_std  = collect(zip(coordinates, patch_std_results))
 
 			# Reconstruct uses test_data_cpu dimensions
-			y_pred = recreate_image_from_patches_test(
-				idx_and_y_pred, padded_data_size, patch_size, size(test_data_cpu),
+			y_mean = recreate_image_from_patches_test(
+				idx_and_y_mean, padded_data_size, patch_size, size(test_data_cpu),
+			)
+			y_std = recreate_image_from_patches_test(
+				idx_and_y_std, padded_data_size, patch_size, size(test_data_cpu),
 			)
 
+			# Apply optional post-processing to the MEAN prediction (std remains an uncertainty map)
 			if get(config["learning"], "largest_connected_component", false)
 				n_lcc = get(config["learning"], "n_lcc", 1)
-				W, H, D, C_out, B = size(y_pred)
+				W, H, D, C_out, B = size(y_mean)
 				y_pred_lcc = zeros(Float32, W, H, D, C_out, B)
 
 				for b in 1:B
 					for c in 1:C_out
 						binary_mask = Array{Int32}(
-							Array(y_pred[:, :, :, c, b]) .>= 0.5f0,
+							Array(y_mean[:, :, :, c, b]) .>= 0.5f0,
 						)
 						components = largest_connected_components(binary_mask, n_lcc)
 						if !isempty(components)
@@ -137,16 +157,17 @@ function evaluate_patches(test_data, test_label, tstate, model, config, axis = (
 						end
 					end
 				end
-				y_pred = y_pred_lcc
+				y_mean = y_pred_lcc
 			end
 
 			# 3. EVALUATE ON HOST CPU: Compare against the CPU label
-			metr = evaluate_metric(y_pred, test_label_cpu, config["learning"]["metric"])
+			metr = evaluate_metric(y_mean, test_label_cpu, config["learning"]["metric"])
 			push!(test_metrics, metr)
-			push!(results, y_pred)
+			push!(results_mean, y_mean)
+			push!(results_std,  y_std)
 		end
 	end
-	return results, test_metrics
+	return results_mean, results_std, test_metrics
 end
 
 
