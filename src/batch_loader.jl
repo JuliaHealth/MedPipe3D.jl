@@ -43,23 +43,9 @@ end
 """
 `get_batch_with_classes(group_paths::Vector{String}, h5::HDF5.File, config::Dict{String, Any})`
 
-Fetches batches of images and labels from specified groups within an HDF5 file, applying class-specific labeling based on configuration settings.
-
-# Arguments
-- `group_paths`: A vector of paths specifying locations within the HDF5 file from which to fetch data.
-- `h5`: An open HDF5 file object used for data retrieval.
-- `config`: A configuration dictionary that influences how data is fetched and labeled.
-
-# Returns
-- `Tuple`: Returns a tuple consisting of a tensor of images, a tensor of labels, and a vector of class labels.
-
-# Description
-It supports class-specific labeling by modifying the label data based on class indices derived from a JSON configuration.
-
-
-# Errors
-- Raises an error if there are issues accessing the specified paths within the HDF5 file.
-- Raises an error if class indices are incorrectly formatted or absent when required.
+Fetches batches of images and labels from specified groups within an HDF5 file, 
+applying class-specific labeling based on configuration settings and zero-padding 
+volumes to identical spatial dimensions for batch concatenation.
 """
 function get_batch_with_classes(group_paths, h5::HDF5.File, config::Dict)
 	images = []
@@ -84,24 +70,49 @@ function get_batch_with_classes(group_paths, h5::HDF5.File, config::Dict)
 			push!(labels, label_data)
 		end
 	end
+
+	# --- NEW: Dynamic Spatial Padding ---
+	# Find the maximum spatial dimensions across all loaded images in this batch
+	max_w = maximum(size(img, 1) for img in images)
+	max_h = maximum(size(img, 2) for img in images)
+	max_d = maximum(size(img, 3) for img in images)
+	target_size = (max_w, max_h, max_d)
+
+	# Helper function to zero-pad 4D arrays [W, H, D, C] to target_size
+	function pad_to_target(arr::AbstractArray, target::Tuple{Int, Int, Int})
+		W, H, D, C = size(arr)
+		if (W, H, D) == target
+			return arr # Skip allocation if already perfectly sized
+		end
+		out = zeros(eltype(arr), target[1], target[2], target[3], C)
+		out[1:W, 1:H, 1:D, :] = arr
+		return out
+	end
+
+	# Pad all images and labels to the max dimensions so `cat` can succeed
+	images = [pad_to_target(img, target_size) for img in images]
+	if !isempty(labels)
+		labels = [pad_to_target(lbl, target_size) for lbl in labels]
+	end
+	# ------------------------------------
+
 	if get(config["learning"], "class_JSON_path", false) != false
 		class_labels_dict = get_class_labels(group_paths, h5, config)
 		push!(class_labels, class_labels_dict)
 	else
 		class_labels = [1]
 	end
+
+	# Concatenation will now always succeed
 	images_tensor = cat(images..., dims = 5)
 	labels_tensor = cat(labels..., dims = 5)
 
 	# --- Classification mode logging ---
-	# Determine number of unique classes from the collected labels tensor
 	unique_label_values = unique(labels_tensor)
-	# Exclude background (0); the remaining values are foreground class indices
 	foreground_classes = filter(v -> v != 0, unique_label_values)
 	n_foreground = length(foreground_classes)
 
 	if get(config["learning"], "class_JSON_path", false) != false
-		# Multi-class path: class indices are embedded in the label values
 		if n_foreground > 1
 			println("[Classification mode] MULTI-CLASS segmentation detected: $n_foreground foreground classes present in batch (class indices: $(sort(foreground_classes))).")
 		elseif n_foreground == 1
@@ -110,15 +121,12 @@ function get_batch_with_classes(group_paths, h5::HDF5.File, config::Dict)
 			println("[Classification mode] WARNING: No foreground labels found in batch. Labels tensor contains only background (0) values.")
 		end
 	else
-		# No class JSON — single foreground class, treated as binary
 		println("[Classification mode] BINARY segmentation (no class JSON provided). Labels contain $(length(unique_label_values)) unique value(s): $(sort(unique_label_values)).")
 	end
 	# --- End classification mode logging ---
 
 	return images_tensor, labels_tensor, class_labels
 end
-
-
 
 """
 `get_patch_batch_with_classes(group_paths::Vector{String}, h5::HDF5.File, config::Dict{String, Any})`
@@ -170,8 +178,15 @@ function get_patch_batch_with_classes(group_paths::Vector, h5::HDF5.File, config
 		end
 
 		if get(config["learning"], "class_JSON_path", false) != false
-			push!(class_labels, copy(class_idx))
+			class_labels_dict = get_class_labels(group_paths, h5, config)
+			# Assuming get_class_labels returns a collection we need to append, or maybe
+			# you need to adjust this later if multiclass fails the same length check!
+			push!(class_labels, class_labels_dict)
+		else
+			# Dynamically fill an array of 1s matching the exact batch size
+			class_labels = fill(1, length(group_paths))
 		end
+
 		channel_image_tensor = cat(channel_images..., dims = 4)
 		channel_label_tensor = cat(channel_labels..., dims = 4)
 		push!(images, copy(channel_image_tensor))

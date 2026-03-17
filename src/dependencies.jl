@@ -11,4 +11,4 @@ using ComputerVisionMetrics
 using MedImages
 using MLDataDevices
 
-CUDA.allowscalar(true)
+# CUDA.allowscalar(true)
