@@ -14,7 +14,7 @@ include("Configuration/configuration.jl")
 include("Data_loading_to_HDF5_with_pre-processing/batch_main.jl")
 
 # Get data (batches)
-include("Get_data/Get_batch.jl")
+include("batch_loader.jl")
 
 # Training components
 include("Train_Validation_Test/get_loss_function.jl")
@@ -41,6 +41,6 @@ include("Post-processing/post-processing.jl")
 # Batching / channeling
 include("Batching_channeling/batching_channeling.jl")
 
-export main_loop, create_config_extended, batch_main, print_hdf5_contents
+export main_loop, batch_main, print_hdf5_contents
 
 end # module MedPipe3D

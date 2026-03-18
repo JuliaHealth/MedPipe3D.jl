@@ -3,3 +3,4 @@
 Manifest.toml
 /dataset
 .vscode
+*.jld2
