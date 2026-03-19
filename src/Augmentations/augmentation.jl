@@ -5,19 +5,17 @@ include("./Resample_to_target.jl")
 using Random, Statistics, CUDA, KernelAbstractions, Distributions, Interpolations, ImageFiltering
 
 
-using  Random, Statistics, CUDA, KernelAbstractions, Distributions
-
-
 """
 `augment_brightness(image::Union{MedImage,Array{Float32, 3}}, value::Float64, mode::String)::Union{MedImage,Array{Float32, 3}}`
 
 Adjust the brightness of an image either additively or multiplicatively.
-\nSupports `MedImage` or 3D `Float32` arrays.
+Supports `MedImage` or 3D `Float32` arrays.
 
 # Arguments
 - `image`: The input image.
 - `value`: The value to adjust the brightness by.
-- `mode`: Adjustment mode, either "additive" which adds `value` to each voxel or "multiplicative" which multiplies each voxel by `value`.
+- `mode`: Adjustment mode, either "additive" which adds `value` to each voxel
+  or "multiplicative" which multiplies each voxel by `value`.
 
 # Returns
 - `MedImage` or `Array`: The brightness-adjusted image, with the same type as the input.
@@ -25,23 +23,18 @@ Adjust the brightness of an image either additively or multiplicatively.
 # Errors
 Throws an error if the mode is neither "additive" nor "multiplicative".
 """
-function augment_brightness(image::Union{MedImage,Array{Float32, 3}}, value::Float64, mode::String)::Union{MedImage,Array{Float32, 3}}
+function augment_brightness(
+    image::Union{MedImage,Array{Float32, 3}},
+    value::Float64,
+    mode::String,
+)::Union{MedImage,Array{Float32, 3}}
     im = union_check_input(image)
-
-    # Apply augmentation, ignoring the minimum value
-    mn = original_min(im)
-    if mode == "additive"
-        im[im .!= mn] .+= value  # Add value to each voxel except the minimum
-    elseif mode == "multiplicative"
-        im[im .!= mn] .*= value  # Multiply each voxel except the minimum by value
-
     original_min = minimum(im)
 
     if mode == "additive"
         im[im .!= original_min] .+= value
     elseif mode == "multiplicative"
         im[im .!= original_min] .*= value
-
     else
         error("Invalid mode. Choose 'additive' or 'multiplicative'.")
     end
@@ -175,127 +168,102 @@ end
 
 
 
-function augment_scaling(image::Union{MedImage,Array{Float32, 3}}, scale_factor::Float64, interpolator_enum)::Union{MedImage,Array{Float32, 3}}
+function augment_scaling(
+    image::Union{MedImage,Array{Float32, 3}},
+    scale_factor::Float64,
+    interpolator_enum,
+)::Union{MedImage,Array{Float32, 3}}
     im = union_check_input(image)
-    original_size = size(im) 
-    spacing = get_spacing(image)
-    new_spacing = spacing .* (1/scale_factor)
+    original_size = size(im)
+
+    spacing     = get_spacing(image)
+    new_spacing = spacing .* (1 / scale_factor)
     image_scaled = resample_to_spacing(image, new_spacing, interpolator_enum)
-    im_scaled = union_check_input(image_scaled)
-    new_size = size(im_scaled)
+    im_scaled    = union_check_input(image_scaled)
+    new_size     = size(im_scaled)
 
     if any(new_size .< original_size)
         pad_beg = Tuple(div.((original_size .- new_size), 2))
         pad_end = Tuple(original_size .- new_size .- pad_beg)
         new_image = pad_mi(image_scaled, pad_beg, pad_end, extrapolate_corner_median(im))
     elseif any(new_size .> original_size)
-        crop_beg = Tuple(div.((new_size .- original_size), 2))
+        crop_beg  = Tuple(div.((new_size .- original_size), 2))
         crop_size = original_size
         new_image = crop_mi(image_scaled, crop_beg, crop_size, interpolator_enum)
     else
         new_image = image_scaled
-
-# work in progress, this feature will not work in pipline
-function augment_scaling(image::MedImage,scale_factor::Float64, interpolator_enum)::Array{Float32, 3} #change scale_factor to Tuple{Float64, Float64, Float64} and test it
-    im = image.voxel_data
-    original_size = size(im) 
-    new_spacing = image.spacing .* (1/scale_factor)
-    image_scaled = resample_to_spacing(image, new_spacing, interpolator_enum)
-    new_size = size(image_scaled.voxel_data)
-
-    if any(new_size .< original_size)
-        pad_beg = Tuple((original_size .- new_size) .÷ 2)
-        pad_end = Tuple(original_size .- new_size .- pad_beg)
-        new_image = pad_mi(image_scaled, pad_beg, pad_end, extrapolate_corner_median(im))
-    elseif any(new_size .> original_size)
-        crop_beg = Tuple((new_size .- original_size) .÷ 2)
-        crop_size = original_size
-        new_image = crop_mi(image_scaled, crop_beg, crop_size, interpolator_enum)
-
     end
-    
-    return new_image
+
+    return union_check_output(image, union_check_input(new_image))
 end
 
 
 # work in progress
 
-function elastic_deformation3d(image::Union{MedImage,Array{Float32, 3}}, strength::Float64, interpolator_enum)
+function elastic_deformation3d(
+    image::Union{MedImage,Array{Float32, 3}},
+    strength::Float64,
+    interpolator_enum,
+)
     img = union_check_input(image)
-
     deformed_img = similar(img)
 
-
     # Initialize displacement vectors for each image point
-
     displacement_x = randn(size(img)...) * strength
     displacement_y = randn(size(img)...) * strength
     displacement_z = randn(size(img)...) * strength
 
     # Interpolator selection
-
-    if interpolator_enum == :Nearest_neighbour_en
-        itp = interpolate(img, BSpline(Constant()))
+    itp = if interpolator_enum == :Nearest_neighbour_en
+        interpolate(img, BSpline(Constant()))
     elseif interpolator_enum == :Linear_en
-        itp = interpolate(img, BSpline(Linear()))
+        interpolate(img, BSpline(Linear()))
     elseif interpolator_enum == :B_spline_en
-        itp = interpolate(img, BSpline(Cubic(Line(OnGrid()))))
+        interpolate(img, BSpline(Cubic(Line(OnGrid()))))
     else
-
         error("Unknown interpolator type!")
     end
 
-    # Kernel call
-    ndrange = size(img)
-    kernel_event = elastic_deformation_kernel(CPU())(img, deformed_img, displacement_x, displacement_y, displacement_z, itp, ndrange=ndrange)
-    # synchronize if necessary, though CPU() is synchronous usually
-    
-    return union_check_output(image, deformed_img)
-end
-
-@kernel function elastic_deformation_kernel(img, deformed_img, displacement_x, displacement_y, displacement_z, itp)
-    idx = @index(Global, Cartesian)  
-    x_global, y_global, z_global = Tuple(idx)
-    size_x, size_y, size_z = size(img)
-
-        error("Nieznany typ interpolatora!")
-    end
-
     sx, sy, sz = size(img)
-    
     event = elastic_deformation_kernel(CPU())(
         img,
         deformed_img,
         displacement_x,
         displacement_y,
         displacement_z,
-        sx, sy, sz,
+        sx,
+        sy,
+        sz,
         itp;
-        ndrange = size(img)
+        ndrange = size(img),
     )
-
     wait(event)
 
     return union_check_output(image, deformed_img)
 end
 
-@kernel function elastic_deformation_kernel(img, deformed_img, displacement_x, displacement_y, displacement_z, size_x, size_y, size_z, itp)
-    x_global, y_global, z_global = @index(Global, Cartesian)  
+@kernel function elastic_deformation_kernel(
+    img,
+    deformed_img,
+    displacement_x,
+    displacement_y,
+    displacement_z,
+    size_x,
+    size_y,
+    size_z,
+    itp,
+)
+    x_global, y_global, z_global = @index(Global, Cartesian)
 
-    
     if 1 <= x_global <= size_x && 1 <= y_global <= size_y && 1 <= z_global <= size_z
         new_x = x_global + displacement_x[x_global, y_global, z_global]
         new_y = y_global + displacement_y[x_global, y_global, z_global]
         new_z = z_global + displacement_z[x_global, y_global, z_global]
 
         if 1 <= new_x <= size_x && 1 <= new_y <= size_y && 1 <= new_z <= size_z
-
-            deformed_img[x_global, y_global, z_global] = itp(new_x, new_y, new_z)  
-
-            deformed_img[x_global, y_global, z_global] = itp([new_x, new_y, new_z])  
-
+            deformed_img[x_global, y_global, z_global] = itp(new_x, new_y, new_z)
         else
-            deformed_img[x_global, y_global, z_global] = 0  
+            deformed_img[x_global, y_global, z_global] = 0
         end
     end
 end
@@ -322,19 +290,15 @@ Apply a Gaussian blur to an image using a specified sigma, kernel size, and kern
 """
 function augment_gaussian_blur(image, sigma, shape, kernel_size, processing_unit)
     im = union_check_input(image)                                  
-    kernel = create_gaussian_kernel(sigma, kernel_size, shape)# Create the Gaussian kernel.
+    kernel = create_gaussian_kernel(sigma, kernel_size, shape) # Create the Gaussian kernel.
 
     if shape == "2D"
-
-        pad_x, pad_y = div.(size(kernel), 2)
+        pad_x, pad_y = size(kernel) .÷ 2
         pad_z = pad_x
     elseif shape == "3D"
-        pad_x, pad_y, pad_z = div.(size(kernel), 2)
-
-        pad_x, pad_y = size(kernel) .÷ 2
-    elseif shape == "3D"
         pad_x, pad_y, pad_z = size(kernel) .÷ 2
-
+    else
+        error("shape must be \"2D\" or \"3D\"")
     end
 
     stretch = (pad_x, pad_x, pad_x)
@@ -508,4 +472,3 @@ end
 
 #     return image_upsampled
 # end
-

@@ -1,9 +1,9 @@
 
 """Holds the raw loaded images and their original metadata for one channel folder."""
 struct ChannelData
-	images::Vector{MedImage}
-	metadata::Vector{Dict{String, Any}}
-	folder_name::String
+    images::Vector{MedImage}
+    metadata::Vector{Dict{String, Any}}
+    folder_name::String
 end
 
 # ────────────────────────────────────────────────────────────
@@ -29,62 +29,61 @@ are processed through the same pipeline in a single unified loop — they are on
 dispatched to different interpolators and intensity-processing rules downstream.
 """
 function batch_main(
-	main_folder::String,
-	save_path::String,
-	config_path::Union{String, Nothing} = nothing,
-	config_name::String = "config.json",
+    main_folder::String,
+    save_path::String,
+    config_path::Union{String, Nothing} = nothing,
+    config_name::String = "config.json",
 )
-	# ── Config ────────────────────────────────────────────────
-	if config_path === nothing
-		config_path = create_config(save_path, config_name)   
-	end
+    # ── Config ────────────────────────────────────────────────
+    if config_path === nothing
+        config_path = create_config(save_path, config_name)
+    end
 
-	image_channel_folders = String[]
-	mask_channel_folders  = String[]
+    image_channel_folders = String[]
+    mask_channel_folders  = String[]
 
-	for patient_folder in readdir(main_folder)
-		patient_path = joinpath(main_folder, patient_folder)
-		isdir(patient_path) || continue
-		for subfolder in readdir(patient_path)
-			subfolder_path = joinpath(patient_path, subfolder)
-			isdir(subfolder_path) || continue
-			lc = lowercase(subfolder)
-			if contains(lc, "image")
-				;
-				push!(image_channel_folders, subfolder_path)
-			elseif contains(lc, "mask")
-				;
-				push!(mask_channel_folders, subfolder_path)
-			end
-		end
-	end
+    for patient_folder in readdir(main_folder)
+        patient_path = joinpath(main_folder, patient_folder)
+        isdir(patient_path) || continue
+        for subfolder in readdir(patient_path)
+            subfolder_path = joinpath(patient_path, subfolder)
+            isdir(subfolder_path) || continue
+            lc = lowercase(subfolder)
+            if contains(lc, "image")
+                push!(image_channel_folders, subfolder_path)
+            elseif contains(lc, "mask")
+                push!(mask_channel_folders, subfolder_path)
+            end
+        end
+    end
 
-	isempty(image_channel_folders) && error(
-		"No 'image' sub-folders found under $main_folder.")
-	isempty(mask_channel_folders) && error(
-		"No 'mask' sub-folders found under $main_folder.")
+    isempty(image_channel_folders) && error("No 'image' sub-folders found under $main_folder.")
+    isempty(mask_channel_folders) && error("No 'mask' sub-folders found under $main_folder.")
 
-	# Images use linear interpolation; masks use nearest-neighbour to preserve labels.
-	channel_specs = [
-		(image_channel_folders, Linear_en, "image"),
-		(mask_channel_folders, Nearest_neighbour_en, "mask"),
-	]
+    # Images use linear interpolation; masks use nearest-neighbour to preserve labels.
+    channel_specs = [
+        (image_channel_folders, Linear_en, "image"),
+        (mask_channel_folders, Nearest_neighbour_en, "mask"),
+    ]
 
-	results = Dict{String, Any}()
-	channel_names = nothing
+    results       = Dict{String, Any}()
+    channel_names = nothing
 
-	for (folders, interpolator, kind) in channel_specs
-		println("\nProcessing $kind channels…")
-		tensor, metadata, names = load_and_preprocess(folders, config_path, interpolator, kind)
-		results[kind]           = (tensor, metadata)
-		kind == "image" && (channel_names = names)
-	end
+    for (folders, interpolator, kind) in channel_specs
+        println("\nProcessing $kind channels…")
+        tensor, metadata, names = load_and_preprocess(folders, config_path, interpolator, kind)
+        results[kind] = (tensor, metadata)
+        kind == "image" && (channel_names = names)
+    end
 
-	return save_to_hdf5(
-		results["image"][1], results["image"][2],
-		results["mask"][1], results["mask"][2],
-		save_path, channel_names,
-	)
+    return save_to_hdf5(
+        results["image"][1],
+        results["image"][2],
+        results["mask"][1],
+        results["mask"][2],
+        save_path,
+        channel_names,
+    )
 end
 
 # ────────────────────────────────────────────────────────────
@@ -92,7 +91,7 @@ end
 # ────────────────────────────────────────────────────────────
 
 """
-	load_channel_data(channel_paths, config, channel_type) -> Vector{ChannelData}
+    load_channel_data(channel_paths, config, channel_type) -> Vector{ChannelData}
 
 Load raw MedImages from disk and collect original metadata.
 No spatial transformation is applied here.
@@ -107,73 +106,74 @@ Returns one `ChannelData` per folder.  Folders that do not contain enough files
 reported together before raising.
 """
 function load_channel_data(
-	channel_paths::Vector{String},
-	config::Dict,
-	channel_type::String,
+    channel_paths::Vector{String},
+    config::Dict,
+    channel_type::String,
 )::Vector{ChannelData}
 
-	channel_size = if channel_type == "image"
-		config["data"]["channel_size_imgs"]
-	elseif channel_type == "mask"
-		config["data"]["channel_size_masks"]
-	else
-		error("channel_type must be \"image\" or \"mask\", got \"$channel_type\".")
-	end
+    channel_size = if channel_type == "image"
+        config["data"]["channel_size_imgs"]
+    elseif channel_type == "mask"
+        config["data"]["channel_size_masks"]
+    else
+        error("channel_type must be \"image\" or \"mask\", got \"$channel_type\".")
+    end
 
-	dataset_splits = let v = config["learning"]["split"]["json_path"]
-		v === nothing || v == false ? nothing : v
-	end
-	class_mapping  = let v = config["learning"]["class_json_path"]
-		v === nothing || v == false ? nothing : v
-	end
+    dataset_splits = let v = config["learning"]["split"]["json_path"]
+        v === nothing || v == false ? nothing : v
+    end
+    class_mapping = let v = config["learning"]["class_json_path"]
+        v === nothing || v == false ? nothing : v
+    end
 
-	loaded = ChannelData[]
-	errors = String[]
+    loaded = ChannelData[]
+    errors = String[]
 
-	for channel_path in channel_paths
-		folder_name = basename(dirname(channel_path))
-		println("  Loading channel: $folder_name")
+    for channel_path in channel_paths
+        folder_name = basename(dirname(channel_path))
+        println("  Loading channel: $folder_name")
 
-		all_files = sort(filter(
-			f -> isfile(joinpath(channel_path, f)),
-			readdir(channel_path),
-		))
-		image_files = [joinpath(channel_path, f) for f in all_files]
+        all_files = sort(
+            filter(f -> isfile(joinpath(channel_path, f)), readdir(channel_path)),
+        )
+        image_files = [joinpath(channel_path, f) for f in all_files]
 
-		if length(image_files) < channel_size
-			# Insufficient files and no padding → defer error, continue to surface all problems at once.
-			push!(errors, "Channel '$folder_name': expected $channel_size $channel_type " *
-						  "files, found $(length(image_files)).")
-			continue
-		end
+        if length(image_files) < channel_size
+            # Insufficient files and no padding → defer error, continue to surface all problems at once.
+            push!(
+                errors,
+                "Channel '$folder_name': expected $channel_size $channel_type files, found $(length(image_files)).",
+            )
+            continue
+        end
 
-		# Trim to channel_size (already sorted)
-		needed_files = image_files[1:channel_size]
-		images       = [load_images(fp)[1] for fp in needed_files]
+        # Trim to channel_size (already sorted)
+        needed_files = image_files[1:channel_size]
+        images       = [load_images(fp)[1] for fp in needed_files]
 
-		metadata = [
-			Dict{String, Any}(
-				"file_path"       => fp,
-				"data_split"      => get_class_or_split_from_json(channel_path, dataset_splits),
-				"class"           => get_class_or_split_from_json(channel_path, class_mapping),
-				"patient_uid_org" => img.patient_uid,
-				"shape_org"       => size(img.voxel_data),
-				"spacing_org"     => img.spacing,
-				"origin_org"      => img.origin,
-				"direction_org"   => img.direction,
-				"type_org"        => img.image_type,
-			) for (fp, img) in zip(needed_files, images)
-		]
+        metadata = [
+            Dict{String, Any}(
+                "file_path"       => fp,
+                "data_split"      => get_class_or_split_from_json(channel_path, dataset_splits),
+                "class"           => get_class_or_split_from_json(channel_path, class_mapping),
+                "patient_uid_org" => img.patient_uid,
+                "shape_org"       => size(img.voxel_data),
+                "spacing_org"     => img.spacing,
+                "origin_org"      => img.origin,
+                "direction_org"   => img.direction,
+                "type_org"        => img.image_type,
+            ) for (fp, img) in zip(needed_files, images)
+        ]
 
-		push!(loaded, ChannelData(images, metadata, folder_name))
-	end
+        push!(loaded, ChannelData(images, metadata, folder_name))
+    end
 
-	if !isempty(errors)
-		foreach(e -> @error(e), errors)
-		error("Insufficient $channel_type files in one or more channels. See errors above.")
-	end
+    if !isempty(errors)
+        foreach(e -> @error(e), errors)
+        error("Insufficient $channel_type files in one or more channels. See errors above.")
+    end
 
-	return loaded
+    return loaded
 end
 
 # ────────────────────────────────────────────────────────────

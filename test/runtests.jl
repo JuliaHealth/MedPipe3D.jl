@@ -8,12 +8,15 @@ include("../src/Data_loading_to_HDF5_with_pre-processing/batch_main.jl")
 
 @testset "MedPipe3D Tests" begin
 
-	# include("test_dataset_to_hdf5.jl")
-	# include("test_hdf5_to_nifti.jl")
-	# include("test_training.jl")
-	include("utils/test_parsing_utils.jl")
-	include("utils/test_img_utils.jl")
-	include("utils/test_io_utils.jl")
-	include("utils/test_model_utils.jl")
-	include("test_config.jl")
+    # include("test_dataset_to_hdf5.jl")
+    # include("test_hdf5_to_nifti.jl")
+    # include("test_training.jl")
+    include("utils/test_parsing_utils.jl")
+    include("utils/test_img_utils.jl")
+    include("utils/test_io_utils.jl")
+    include("utils/test_model_utils.jl")
+    include("utils/test_batching_channeling.jl")
+    include("utils/test_training_utils.jl")
+    include("utils/test_postprocessing_utils.jl")
+    include("test_config.jl")
 end
