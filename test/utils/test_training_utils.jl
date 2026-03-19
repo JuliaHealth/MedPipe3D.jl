@@ -23,9 +23,9 @@ end
 
     @testset "get_loss_function returns known losses" begin
         l1 = get_loss_function("l1")
-        @test typeof(l1) <: (Lux.GenericLossFunction)
+        @test typeof(l1) == typeof(Lux.GenericLossFunction)
         l2 = get_loss_function("mse")
-        @test typeof(l2) <: (Lux.GenericLossFunction)
+        @test typeof(l2) == typeof(Lux.GenericLossFunction)
         l3 = get_loss_function("dice")
         @test l3 === dice_loss
     end

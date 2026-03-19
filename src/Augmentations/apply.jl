@@ -76,7 +76,6 @@ function apply_augmentation(image, augmentation::String, params::Dict)
 
     elseif augmentation == "Rician noise transform"
         return augment_rician_noise(image, params["variance"])
-
     elseif augmentation == "Mirror transform"
         # axes may be stored as a Vector{Int} (from JSON) or a String "(1,2,3)"
         axes_param = params["axes"]

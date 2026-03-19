@@ -81,87 +81,89 @@ function if provided.
   configuration parameters are missing.
 """
 function main_loop(hdf5_path, config_path, rng_seed, loss_function_custom = nothing)
-	function main(h5, config_path, rng_seed)
-		rng = Xoshiro(rng_seed)
-		println("Loading configuration from $config_path")
-		config = JSON.parsefile(config_path)
-		println("Loading data from HDF5")
+    function main(h5, config_path, rng_seed)
+        rng = Xoshiro(rng_seed)
+        println("Loading configuration from $config_path")
+        config = JSON.parsefile(config_path)
+        println("Loading data from HDF5")
 
-		indices_dict = proc_hdf5(h5, config, rng)
+        indices_dict = proc_hdf5(h5, config, rng)
 
-		image_data        = read(h5[indices_dict["train"][1]*"/images/data"])
-		train_groups      = indices_dict["train"]
-		validation_groups = indices_dict["validation"]
+        image_data        = read(h5[indices_dict["train"][1] * "/images/data"])
+        train_groups      = indices_dict["train"]
+        validation_groups = indices_dict["validation"]
+        unique_classes    = get_class_labels(indices_dict["train"], h5, config)
+        num_classes = length(unique_classes) + 1 # TODO: work in progress - for validations
+        model       = create_segmentation_model(num_classes, size(image_data, 4))
+        optimizer   = get_optimiser(config["model"]["optimizer_name"])
 
-		# num_classes: one output channel per foreground class plus background (class 0).
-		# unique_classes contains only foreground keys, so +1 accounts for background.
-		unique_classes = get_class_labels(indices_dict["train"], h5, config)
-		num_classes    = length(unique_classes) + 1
+        loss_function = if loss_function_custom !== nothing
+            loss_function_custom
+        else
+            get_loss_function(config["model"]["loss_function_name"])
+        end
 
-		model     = create_segmentation_model(num_classes, size(image_data, 4))
-		optimizer = get_optimiser(config["model"]["optimizer_name"])
+        num_epochs_val = get(config["model"], "num_epochs", 10)  # default 10
+        num_epochs     = isnothing(num_epochs_val) ? 10 : parse(Int, string(num_epochs_val))
 
-		loss_function = loss_function_custom !== nothing ?
-						loss_function_custom :
-						get_loss_function(config["model"]["loss_function_name"])
+        use_gpu = (config["augmentation"]["processing_unit"] == "GPU")
+        tstate  = initialize_train_state(rng, model, optimizer; use_gpu = use_gpu)
 
-		num_epochs_val = get(config["model"], "num_epochs", 10)
-		num_epochs     = isnothing(num_epochs_val) ? 10 : parse(Int, string(num_epochs_val))
+        # TODO: add already tested apply.jl (requires the addition of probabilistic augmentation)
+        final_tstate = if get(config["learning"], "n_cross_val", false)
+            n_folds          = get(config["learning"], "n_folds", false)
+            all_tstate       = []
+            combined_indices = [indices_dict["train"]; indices_dict["validation"]]
+            shuffled_indices = shuffle(rng, combined_indices)
 
-		use_gpu = (config["augmentation"]["processing_unit"] == "GPU")
-		tstate  = initialize_train_state(rng, model, optimizer; use_gpu = use_gpu)
+            local last_tstate = tstate
+            for fold in 1:n_folds
+                println("Starting fold $fold/$n_folds")
+                train_groups, validation_groups = k_fold_split(
+                    shuffled_indices,
+                    n_folds,
+                    fold,
+                    rng,
+                )
 
-		# Apply probabilistic augmentations to training images when an augmentation
-		# config path is provided. apply_augmentations expects a 5-D tensor
-		# [H, W, D, C, B] and returns the same shape with transforms applied in-place.
-		aug_config_path = get(config["augmentation"], "aug_config_path", nothing)
-		if aug_config_path !== nothing
-			println("Applying probabilistic augmentations from $aug_config_path")
-			# Load a representative batch to augment. Full per-batch augmentation
-			# happens inside train_epoch; this pre-pass augments the preloaded slice
-			# used for model initialisation only.
-			image_data_5d = reshape(image_data,
-				size(image_data, 1), size(image_data, 2),
-				size(image_data, 3), size(image_data, 4), 1)
-			image_data_5d = apply_augmentations(image_data_5d, aug_config_path)
-		end
+                fold_tstate = initialize_train_state(rng, model, optimizer; use_gpu = use_gpu)
+                fold_tstate = epoch_loop(
+                    num_epochs,
+                    train_groups,
+                    validation_groups,
+                    h5,
+                    model,
+                    fold_tstate,
+                    config,
+                    loss_function,
+                    num_classes,
+                )
 
-		final_tstate = if get(config["learning"], "n_cross_val", false)
-			n_folds          = get(config["learning"], "n_folds", false)
-			all_tstate       = []
-			combined_indices = [indices_dict["train"]; indices_dict["validation"]]
-			shuffled_indices = shuffle(rng, combined_indices)
+                push!(all_tstate, fold_tstate)
+                last_tstate = fold_tstate
+            end
+            last_tstate
+        else
+            epoch_loop(
+                num_epochs,
+                train_groups,
+                validation_groups,
+                h5,
+                model,
+                tstate,
+                config,
+                loss_function,
+                num_classes,
+            )
+        end
 
-			local last_tstate = tstate
-			for fold in 1:n_folds
-				println("Starting fold $fold/$n_folds")
-				fold_train, fold_val = k_fold_split(shuffled_indices, n_folds, fold, rng)
+        # TODO: add the already tested write function
+        return final_tstate
+    end
 
-				fold_tstate = initialize_train_state(rng, model, optimizer; use_gpu = use_gpu)
-				fold_tstate = epoch_loop(
-					num_epochs, fold_train, fold_val,
-					h5, model, fold_tstate, config, loss_function, num_classes,
-				)
-				push!(all_tstate, fold_tstate)
-				last_tstate = fold_tstate
-			end
-			last_tstate
-		else
-			epoch_loop(
-				num_epochs, train_groups, validation_groups,
-				h5, model, tstate, config, loss_function, num_classes,
-			)
-		end
-
-		# Persist the trained model state to disk.
-		save_model(final_tstate, config)
-
-		return final_tstate
-	end
-
-	h5open(hdf5_path, "r") do h5
-		return main(h5, config_path, rng_seed)
-	end
+    h5open(hdf5_path, "r") do h5
+        return main(h5, config_path, rng_seed)
+    end
 end
 
 
@@ -195,42 +197,61 @@ based on validation performance to prevent overfitting.
 function epoch_loop(num_epochs, group_paths_train, group_paths_val, h5, model, tstate,
 	config, loss_function, num_classes)
 
-	# Initialise early-stopping state once, outside the epoch loop.
-	# "early_stopping" is now a nested dict with an "enabled" key (new config schema).
-	# Fall back to a plain bool for backwards compatibility with old configs.
-	_es_val = get(config["model"], "early_stopping", false)
-	early_stopping = isa(_es_val, Dict) ? get(_es_val, "enabled", false) : _es_val
-	early_stopping_dict = early_stopping ?
-						  Dict("best_metric" => Inf, "patience_counter" => 0, "stop_training" => false) :
-						  nothing
+    get(config["model"], "early_stopping", false) ?
+        early_stopping_dict = Dict(
+            "best_metric" => Inf,
+            "patience_counter" => 0,
+            "stop_training" => false,
+        ) : nothing
 
-	for epoch in 1:num_epochs
-		if early_stopping
-			println("..................Starting epoch $epoch with early stopping ........................")
-			tstate, early_stopping_dict = train_epoch(
-				group_paths_train, group_paths_val, h5, model,
-				tstate, config, loss_function, num_classes, early_stopping_dict,
-			)
-			if early_stopping_dict["stop_training"]
-				println("Stopping training early at epoch $epoch.")
-				break
-			end
-		else
-			println("..................Starting epoch $epoch ........................")
-			tstate = train_epoch(
-				group_paths_train, group_paths_val, h5, model,
-				tstate, config, loss_function, num_classes,
-			)
-		end
+    for epoch in 1:num_epochs
+        # Training
+        if get(config["model"], "early_stopping", false)
+            println(
+                "..................Starting epoch $epoch with early stopping ........................",
+            )
+            tstate, early_stopping_dict = train_epoch(
+                group_paths_train,
+                group_paths_val,
+                h5,
+                model,
+                tstate,
+                config,
+                loss_function,
+                num_classes,
+                early_stopping_dict,
+            )
+            if early_stopping_dict["stop_training"]
+                println("Stopping training early at epoch $epoch.")
+                break
+            end
+        else
+            println("..................Starting epoch $epoch ........................")
+            tstate = train_epoch(
+                group_paths_train,
+                group_paths_val,
+                h5,
+                model,
+                tstate,
+                config,
+                loss_function,
+                num_classes,
+            )
+        end
 
-		# Run validation after every epoch when a validation set is available.
-		if !isempty(group_paths_val)
-			mean_metric, mean_loss = evaluate_validation(
-				group_paths_val, h5, model, tstate, loss_function, config, num_classes,
-			)
-			println("Epoch $epoch — Validation metric: $mean_metric  |  Validation loss: $mean_loss")
-		end
-	end
-
-	return tstate
+        # Validation
+        if !isempty(group_paths_val)
+            val_metric = evaluate_validation(
+                group_paths_val,
+                h5,
+                model,
+                tstate,
+                loss_function,
+                config,
+                num_classes,
+            ) # TODO: work in progress
+            println("Epoch $epoch, Validation Metric: $val_metric")
+        end
+    end
+    return tstate
 end
