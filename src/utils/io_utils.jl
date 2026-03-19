@@ -8,23 +8,23 @@ using MedImages
 
 """Return true if `path` names an existing HDF5 Group inside `h5`."""
 function group_exists(h5::Union{HDF5.File, HDF5.Group}, path::AbstractString)::Bool
-    try
-        return isa(h5[path], HDF5.Group)
-    catch
-        return false
-    end
+	try
+		return isa(h5[path], HDF5.Group)
+	catch
+		return false
+	end
 end
 
 """
 Read attribute `name` from `obj`, returning `default` when absent or on error.
 Avoids crashes from missing metadata fields.
 """
-function safe_read_attribute(obj, name::AbstractString; default=nothing)
-    try
-        haskey(attrs(obj), name) ? read_attribute(obj, name) : default
-    catch
-        default
-    end
+function safe_read_attribute(obj, name::AbstractString; default = nothing)
+	try
+		haskey(attrs(obj), name) ? read_attribute(obj, name) : default
+	catch
+		default
+	end
 end
 
 """
@@ -33,17 +33,17 @@ Write every key/value pair in `meta` as an HDF5 attribute on `group`.
 - `Image_type` values are stringified.
 - `nothing` values are silently skipped.
 """
-function safe_write_meta(group::HDF5.Group, meta::Dict{String,Any})
-    for (key, value) in meta
-        value === nothing && continue
-        if isa(value, Union{Tuple, NTuple})
-            write_attribute(group, key, collect(value))
-        elseif isa(value, Image_type)
-            write_attribute(group, key, string(value))
-        else
-            write_attribute(group, key, value)
-        end
-    end
+function safe_write_meta(group::HDF5.Group, meta::Dict{String, Any})
+	for (key, value) in meta
+		value === nothing && continue
+		if isa(value, Union{Tuple, NTuple})
+			write_attribute(group, key, collect(value))
+		elseif isa(value, Image_type)
+			write_attribute(group, key, string(value))
+		else
+			write_attribute(group, key, value)
+		end
+	end
 end
 
 # ────────────────────────────────────────────────────────────
@@ -52,8 +52,8 @@ end
 
 """Read all HDF5 attributes from `meta_group` into a plain `Dict`."""
 function read_metadata(meta_group)::Dict
-    Dict(attr_name => read_attribute(meta_group, attr_name)
-         for attr_name in keys(attrs(meta_group)))
+	Dict(attr_name => read_attribute(meta_group, attr_name)
+		 for attr_name in keys(attrs(meta_group)))
 end
 
 # ────────────────────────────────────────────────────────────
@@ -65,14 +65,14 @@ Sort key for metadata channel indices.
 Handles pure integers, strings ending in digits, and plain strings.
 """
 function _meta_sort_key(k)
-    if isa(k, AbstractString)
-        n = tryparse(Int, k)
-        n !== nothing && return (0, n)
-        m = match(r"(\d+)$", k)
-        m !== nothing && return (1, parse(Int, m.captures[1]))
-        return (2, k)
-    end
-    return (3, string(k))
+	if isa(k, AbstractString)
+		n = tryparse(Int, k)
+		n !== nothing && return (0, n)
+		m = match(r"(\d+)$", k)
+		m !== nothing && return (1, parse(Int, m.captures[1]))
+		return (2, k)
+	end
+	return (3, string(k))
 end
 
 """
@@ -80,19 +80,19 @@ Return one metadata Dict per channel from `meta_group`.
 Handles: missing group → empty dicts; single shared entry → broadcast; partial list → fill with empty.
 """
 function _metadata_per_channel(meta_group, num_channels::Int)::Vector{Dict}
-    meta_group === nothing && return [Dict() for _ in 1:num_channels]
-    meta_keys = sort!(collect(keys(meta_group)), by=_meta_sort_key)
-    isempty(meta_keys) && return [Dict() for _ in 1:num_channels]
+	meta_group === nothing && return [Dict() for _ in 1:num_channels]
+	meta_keys = sort!(collect(keys(meta_group)), by = _meta_sort_key)
+	isempty(meta_keys) && return [Dict() for _ in 1:num_channels]
 
-    metas = [read_metadata(meta_group[k]) for k in meta_keys]
+	metas = [read_metadata(meta_group[k]) for k in meta_keys]
 
-    if length(metas) == num_channels
-        return metas
-    elseif length(metas) == 1
-        return fill(metas[1], num_channels)
-    else
-        return [i <= length(metas) ? metas[i] : Dict() for i in 1:num_channels]
-    end
+	if length(metas) == num_channels
+		return metas
+	elseif length(metas) == 1
+		return fill(metas[1], num_channels)
+	else
+		return [i <= length(metas) ? metas[i] : Dict() for i in 1:num_channels]
+	end
 end
 
 """
@@ -101,34 +101,34 @@ Returns `(channel_data, channel_meta)` where each element corresponds to one ima
 Supports 3-D (single image), 4-D (single image, multi-channel), and 5-D (batch × channel) arrays.
 """
 function _process_data_group_v2(data_group::HDF5.Group)
-    data = read(data_group["data"])
-    nd   = ndims(data)
+	data = read(data_group["data"])
+	nd   = ndims(data)
 
-    nd ∈ (3, 4, 5) || error("Unsupported data dimensions: $nd")
+	nd ∈ (3, 4, 5) || error("Unsupported data dimensions: $nd")
 
-    num_channels        = nd >= 4 ? size(data, 4) : 1
-    num_images_in_batch = nd == 5 ? size(data, 5) : 1
+	num_channels        = nd >= 4 ? size(data, 4) : 1
+	num_images_in_batch = nd == 5 ? size(data, 5) : 1
 
-    meta_group   = haskey(data_group, "metadata") ? data_group["metadata"] : nothing
-    meta_by_chan = _metadata_per_channel(meta_group, num_channels)
+	meta_group   = haskey(data_group, "metadata") ? data_group["metadata"] : nothing
+	meta_by_chan = _metadata_per_channel(meta_group, num_channels)
 
-    channel_data = Vector{Any}(undef, num_images_in_batch)
-    channel_meta = Vector{Any}(undef, num_images_in_batch)
+	channel_data = Vector{Any}(undef, num_images_in_batch)
+	channel_meta = Vector{Any}(undef, num_images_in_batch)
 
-    if nd == 3
-        channel_data[1] = [data]
-        channel_meta[1] = meta_by_chan
-    elseif nd == 4
-        channel_data[1] = [@view data[:, :, :, j] for j in 1:num_channels]
-        channel_meta[1] = meta_by_chan
-    else
-        for i in 1:num_images_in_batch
-            channel_data[i] = [@view data[:, :, :, j, i] for j in 1:num_channels]
-            channel_meta[i] = meta_by_chan
-        end
-    end
+	if nd == 3
+		channel_data[1] = [data]
+		channel_meta[1] = meta_by_chan
+	elseif nd == 4
+		channel_data[1] = [@view data[:, :, :, j] for j in 1:num_channels]
+		channel_meta[1] = meta_by_chan
+	else
+		for i in 1:num_images_in_batch
+			channel_data[i] = [@view data[:, :, :, j, i] for j in 1:num_channels]
+			channel_meta[i] = meta_by_chan
+		end
+	end
 
-    return channel_data, channel_meta
+	return channel_data, channel_meta
 end
 
 """
@@ -136,35 +136,35 @@ Parse a legacy-format HDF5 batch group (flat dataset keyed by `data_key`).
 Returns `(channel_data, channel_meta)`.
 """
 function process_data_group(batch_group, data_key::String, metadata_key::String)
-    data                = read(batch_group[data_key])
-    num_channels        = size(data, 4)
-    num_images_in_batch = size(data, 5)
+	data                = read(batch_group[data_key])
+	num_channels        = size(data, 4)
+	num_images_in_batch = size(data, 5)
 
-    channel_data = Vector{Any}()
-    channel_meta = Vector{Any}()
+	channel_data = Vector{Any}()
+	channel_meta = Vector{Any}()
 
-    if !haskey(batch_group, metadata_key)
-        @warn "No '$metadata_key' group found in batch group."
-        return channel_data, channel_meta
-    end
+	if !haskey(batch_group, metadata_key)
+		@warn "No '$metadata_key' group found in batch group."
+		return channel_data, channel_meta
+	end
 
-    meta_group   = batch_group[metadata_key]
-    prefix       = data_key == "images" ? "image" : "mask"
+	meta_group = batch_group[metadata_key]
+	prefix     = data_key == "images" ? "image" : "mask"
 
-    for i in 1:num_images_in_batch
-        images_in_channel = Any[]
-        meta_in_channel   = Any[]
-        for j in 1:num_channels
-            meta_key = "$(prefix)_$(j)"
-            meta     = haskey(meta_group, meta_key) ? read_metadata(meta_group[meta_key]) : Dict()
-            push!(meta_in_channel,   meta)
-            push!(images_in_channel, data[:, :, :, j, i])
-        end
-        push!(channel_data, images_in_channel)
-        push!(channel_meta, meta_in_channel)
-    end
+	for i in 1:num_images_in_batch
+		images_in_channel = Any[]
+		meta_in_channel   = Any[]
+		for j in 1:num_channels
+			meta_key = "$(prefix)_$(j)"
+			meta     = haskey(meta_group, meta_key) ? read_metadata(meta_group[meta_key]) : Dict()
+			push!(meta_in_channel, meta)
+			push!(images_in_channel, data[:, :, :, j, i])
+		end
+		push!(channel_data, images_in_channel)
+		push!(channel_meta, meta_in_channel)
+	end
 
-    return channel_data, channel_meta
+	return channel_data, channel_meta
 end
 
 """
@@ -175,42 +175,42 @@ Each element of `image_batches` / `mask_batches` is a list of per-batch entries;
 each entry is a list of channels; each channel is an array slice.
 """
 function load_images_from_hdf5(hdf5_path::String)
-    image_batches        = Any[]
-    image_batch_metadata = Any[]
-    mask_batches         = Any[]
-    mask_batch_metadata  = Any[]
+	image_batches        = Any[]
+	image_batch_metadata = Any[]
+	mask_batches         = Any[]
+	mask_batch_metadata  = Any[]
 
-    h5open(hdf5_path, "r") do file
-        for batch_name in keys(file)
-            batch_group = file[batch_name]
-            isa(batch_group, HDF5.Group) || continue
+	h5open(hdf5_path, "r") do file
+		for batch_name in keys(file)
+			batch_group = file[batch_name]
+			isa(batch_group, HDF5.Group) || continue
 
-            for (key, batches, metas) in (
-                    ("images", image_batches, image_batch_metadata),
-                    ("masks",  mask_batches,  mask_batch_metadata))
+			for (key, batches, metas) in (
+				("images", image_batches, image_batch_metadata),
+				("masks", mask_batches, mask_batch_metadata))
 
-                if !haskey(batch_group, key)
-                    @warn "No '$key' found in '$batch_name'."
-                    continue
-                end
+				if !haskey(batch_group, key)
+					@warn "No '$key' found in '$batch_name'."
+					continue
+				end
 
-                obj = batch_group[key]
-                if isa(obj, HDF5.Dataset)
-                    data, meta = process_data_group(batch_group, key, "$(key)_metadata")
-                elseif isa(obj, HDF5.Group) && haskey(obj, "data")
-                    data, meta = _process_data_group_v2(obj)
-                else
-                    @warn "Unrecognised '$key' object in '$batch_name'."
-                    continue
-                end
+				obj = batch_group[key]
+				if isa(obj, HDF5.Dataset)
+					data, meta = process_data_group(batch_group, key, "$(key)_metadata")
+				elseif isa(obj, HDF5.Group) && haskey(obj, "data")
+					data, meta = _process_data_group_v2(obj)
+				else
+					@warn "Unrecognised '$key' object in '$batch_name'."
+					continue
+				end
 
-                push!(batches, data)
-                push!(metas,   meta)
-            end
-        end
-    end
+				push!(batches, data)
+				push!(metas, meta)
+			end
+		end
+	end
 
-    return image_batches, image_batch_metadata, mask_batches, mask_batch_metadata
+	return image_batches, image_batch_metadata, mask_batches, mask_batch_metadata
 end
 
 # ────────────────────────────────────────────────────────────
@@ -218,56 +218,66 @@ end
 # ────────────────────────────────────────────────────────────
 
 """
-Reconstruct the original MedImage for `meta`, replace its voxel data with `data`,
-and save it to `output_folder` using `suffix` appended before the file extension.
+`process_and_save_medimage_test(meta, pred_data, h5_file, group_name)`
+
+Constructs a new MedImage with predicted data and original spatial metadata,
+then saves it directly into an HDF5 group.
 """
-function process_and_save_medimage(meta::Dict, data::AbstractArray,
-                                   output_folder::String, suffix::String)
-    original_path = meta["file_path"]
+function process_and_save_medimage_test(meta::Dict, pred_data::AbstractArray, h5_file::HDF5.File, group_name::String)
+	println("Saving prediction to HDF5...")
 
-    original_image = if isdefined(MedImages, :load_images)
-        MedImages.load_images(original_path)[1]
-    elseif isdefined(MedImages, :load_image) &&
-           hasmethod(MedImages.load_image, Tuple{String, String})
-        img_type = get(meta, "image_type", "CT")
-        MedImages.load_image(original_path, string(img_type))
-    else
-        MedImages.load_image(original_path)
-    end
+	src_path = meta["file_path"]
+	original_img = MedImages.load_image(src_path, "test_patient")
 
-    updated = update_voxel_and_spatial_data(
-        original_image, data,
-        original_image.origin, original_image.spacing, original_image.direction
-    )
+	predicted_img = MedImage(
+		pred_data,
+		original_img.origin,
+		original_img.spacing,
+		original_img.direction,
+		original_img.image_type,
+		original_img.image_subtype,
+		now(),
+		original_img.acquistion_time,
+		original_img.patient_id,
+		first(instances(MedImages.current_device_enum)),
+		original_img.study_uid,
+		original_img.patient_uid,
+		original_img.series_uid,
+		original_img.study_description,
+		original_img.legacy_file_name,
+		Dict{Any, Any}(),
+		Dict{Any, Any}(),
+		false,
+		Dict{Any, Any}(),
+	)
 
-    stem, ext   = splitext(basename(original_path))
-    output_path = joinpath(output_folder, stem * suffix * ext)
+	# Save directly to the open HDF5 file
+	dataset_name = save_med_image(h5_file, group_name, predicted_img)
+	println("Saved inside HDF5 as: $group_name/$dataset_name")
 
-    create_nii_from_medimage(updated, output_path)
-    @info "Saved $(suffix) → $output_path"
+	return dataset_name
 end
-
 """
 Convert every image and mask stored in `hdf5_path` back to NIfTI files in `output_folder`.
 Appends `_image_after` / `_mask_after` to each filename.
 """
 function convert_hdf5_to_medimages(hdf5_path::String, output_folder::String)
-    image_batches, image_metas, mask_batches, mask_metas =
-        load_images_from_hdf5(hdf5_path)
+	image_batches, image_metas, mask_batches, mask_metas =
+		load_images_from_hdf5(hdf5_path)
 
-    for (batches, metas, suffix) in (
-            (image_batches, image_metas, "_image_after"),
-            (mask_batches,  mask_metas,  "_mask_after"))
-        for (batch, batch_meta) in zip(batches, metas)
-            for (channels, chan_meta) in zip(batch, batch_meta)
-                for (arr, meta) in zip(channels, chan_meta)
-                    process_and_save_medimage(meta, arr, output_folder, suffix)
-                end
-            end
-        end
-    end
+	for (batches, metas, suffix) in (
+		(image_batches, image_metas, "_image_after"),
+		(mask_batches, mask_metas, "_mask_after"))
+		for (batch, batch_meta) in zip(batches, metas)
+			for (channels, chan_meta) in zip(batch, batch_meta)
+				for (arr, meta) in zip(channels, chan_meta)
+					process_and_save_medimage(meta, arr, output_folder, suffix)
+				end
+			end
+		end
+	end
 
-    @info "All images and masks processed and saved to $output_folder."
+	@info "All images and masks processed and saved to $output_folder."
 end
 
 # ────────────────────────────────────────────────────────────
@@ -282,22 +292,22 @@ Look up `channel_path` in a split or class JSON file.
   (e.g. `"1_tumour"`), making ordering explicit.
 """
 function get_class_or_split_from_json(channel_path::String,
-                                      json_path,
-                                      class_names=nothing)
-    (json_path === nothing || json_path === false) && return nothing
+	json_path,
+	class_names = nothing)
+	(json_path === nothing || json_path === false) && return nothing
 
-    data = JSON.parsefile(json_path)
+	data = JSON.parsefile(json_path)
 
-    if class_names !== nothing
-        indexed = Dict(name => "$(i)_$name" for (i, name) in enumerate(class_names))
-        for (cls, paths) in data
-            any(p -> occursin(p, channel_path), paths) && return indexed[cls]
-        end
-    else
-        for (key, paths) in data
-            any(p -> occursin(p, channel_path), paths) && return key
-        end
-    end
+	if class_names !== nothing
+		indexed = Dict(name => "$(i)_$name" for (i, name) in enumerate(class_names))
+		for (cls, paths) in data
+			any(p -> occursin(p, channel_path), paths) && return indexed[cls]
+		end
+	else
+		for (key, paths) in data
+			any(p -> occursin(p, channel_path), paths) && return key
+		end
+	end
 
-    return nothing
+	return nothing
 end

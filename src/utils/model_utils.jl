@@ -7,7 +7,7 @@ using ADTypes
 # ────────────────────────────────────────────────────────────
 
 """
-    infer_model(tstate, model, data) -> (y_pred, st)
+	infer_model(tstate, model, data) -> (y_pred, st)
 
 Run a single forward pass of `model` on `data`, automatically moving `data`
 to the same device as `tstate.parameters`.
@@ -15,10 +15,101 @@ to the same device as `tstate.parameters`.
 Returns the raw prediction tensor and the updated state `st`.
 """
 function infer_model(tstate, model, data)
-    dev    = MLDataDevices.get_device(tstate.parameters)
-    input  = data |> dev
-    y_pred, st = Lux.apply(model, input, tstate.parameters, tstate.states)
-    return y_pred, st
+	dev   = MLDataDevices.get_device(tstate.parameters)
+	input = data |> dev
+
+	# 1. Put the model states into inference mode
+	test_states = Lux.testmode(tstate.states)
+
+	# 2. Apply the model using the test states
+	y_pred, st = Lux.apply(model, input, tstate.parameters, test_states)
+
+	return y_pred, st
+end
+
+# ────────────────────────────────────────────────────────────
+# Test-time augmentation (invertible)
+# ────────────────────────────────────────────────────────────
+
+"""
+    infer_model_tta(tstate, model, data, config) -> (mean_mask, std_mask, st)
+
+Run test-time augmentation (TTA) when enabled by config:
+
+- Applies an **invertible spatial flip** to the model input (dims 1–3),
+  runs inference, then applies the **inverse flip** to the model output.
+- Repeats inference `n` times when `config["learning"]["n_invertible"]` is provided.
+- Returns the per-voxel **mean** and **standard deviation** of the predicted masks.
+
+Config keys:
+- `config["learning"]["invertible_augmentations"]::Bool` (default false)
+- `config["learning"]["n_invertible"]::Int` (default 1)
+
+Notes:
+- The model output is converted to probabilities with a sigmoid,
+  matching the rest of the pipeline's Dice metric implementation.
+"""
+function infer_model_tta(tstate, model, data, config::Dict)
+	enabled = get(config["learning"], "invertible_augmentations", false)
+	n_raw   = get(config["learning"], "n_invertible", 1)
+	n       = max(1, Int(n_raw))
+
+	# Fast path: single inference, std=0
+	if !enabled || n == 1
+		y_pred, st = infer_model(tstate, model, data)
+		y_prob     = 1 ./ (1 .+ exp.(-Array(y_pred)))
+		std_prob   = zeros(eltype(y_prob), size(y_prob))
+		return y_prob, std_prob, st
+	end
+
+	# Cycle through a fixed set of perfectly invertible transforms.
+	# Each is a tuple of (flip_x, flip_y, flip_z). The inverse is the same flip.
+	flip_bank = (
+		(false, false, false),
+		(true,  false, false),
+		(false, true,  false),
+		(false, false, true),
+		(true,  true,  false),
+		(true,  false, true),
+		(false, true,  true),
+		(true,  true,  true),
+	)
+
+	apply_flip_5d = function (x::AbstractArray, flips::NTuple{3, Bool})
+		xf = x
+		flips[1] && (xf = reverse(xf, dims = 1))
+		flips[2] && (xf = reverse(xf, dims = 2))
+		flips[3] && (xf = reverse(xf, dims = 3))
+		return xf
+	end
+
+	mean_prob = nothing
+	m2        = nothing
+	st_last   = nothing
+
+	for i in 1:n
+		flips = flip_bank[mod1(i, length(flip_bank))]
+
+		x_aug = apply_flip_5d(data, flips)
+		y_pred, st = infer_model(tstate, model, x_aug)
+		st_last = st
+
+		# Convert to CPU prob mask for stable aggregation
+		y_prob = 1 ./ (1 .+ exp.(-Array(y_pred)))
+		y_prob = apply_flip_5d(y_prob, flips)  # inverse == forward for flips
+
+		if mean_prob === nothing
+			mean_prob = copy(y_prob)
+			m2        = zeros(eltype(y_prob), size(y_prob))
+		else
+			δ = y_prob .- mean_prob
+			mean_prob .+= δ ./ i
+			m2 .+= δ .* (y_prob .- mean_prob)
+		end
+	end
+
+	std_prob = sqrt.(m2 ./ (n - 1))
+	return mean_prob, std_prob, st_last
 end
 
 # ────────────────────────────────────────────────────────────
@@ -26,25 +117,25 @@ end
 # ────────────────────────────────────────────────────────────
 
 """
-    is_binary_tensor(tensor) -> Bool
+	is_binary_tensor(tensor) -> Bool
 
 Return `true` if every element of `tensor` is exactly `0` or `1`.
 """
 function is_binary_tensor(tensor)::Bool
-    return all(x -> x == 0 || x == 1, tensor)
+	return all(x -> x == 0 || x == 1, tensor)
 end
 
 """
-    check_if_binary_and_report(tensor)
+	check_if_binary_and_report(tensor)
 
 Print every `(linear_index, value)` pair and the set of unique element types
 found in `tensor`. Intended for debugging predicted segmentation masks.
 """
 function check_if_binary_and_report(tensor)
-    non_binary_values = [(i, v) for (i, v) in enumerate(tensor)]
-    unique_types      = unique(typeof(v) for v in tensor)
-    println("non_binary_values : ", non_binary_values)
-    println("unique_types      : ", unique_types)
+	non_binary_values = [(i, v) for (i, v) in enumerate(tensor)]
+	unique_types      = unique(typeof(v) for v in tensor)
+	println("non_binary_values : ", non_binary_values)
+	println("unique_types      : ", unique_types)
 end
 
 """
@@ -55,35 +146,35 @@ Defines:
 """
 
 function single_train_step!(::ADTypes.AutoZygote, loss_function, data, tstate)
-    x, y = data
+	x, y = data
 
-    # Move data to the same device as the parameters/states
-    dev = MLDataDevices.get_device(tstate.parameters)
-    x = x |> dev
-    y = y |> dev
+	# Move data to the same device as the parameters/states
+	dev = MLDataDevices.get_device(tstate.parameters)
+	x = x |> dev
+	y = y |> dev
 
-    ps = tstate.parameters
-    st = tstate.states
+	ps = tstate.parameters
+	st = tstate.states
 
-    # Ensure parameters are on the same device as data (in case they were moved externally)
-    ps = ps |> dev
-    st = st |> dev
+	# Ensure parameters are on the same device as data (in case they were moved externally)
+	ps = ps |> dev
+	st = st |> dev
 
-    obj_fn = function (model, ps_, st_, data_)
-        x_, y_ = data_
-        y_pred, st_new = Lux.apply(model, x_, ps_, st_)
-        loss = loss_function(y_pred, y_)
-        return loss, st_new, (; y_pred = y_pred)
-    end
+	obj_fn = function (model, ps_, st_, data_)
+		x_, y_ = data_
+		y_pred, st_new = Lux.apply(model, x_, ps_, st_)
+		loss = loss_function(y_pred, y_)
+		return loss, st_new, (; y_pred = y_pred)
+	end
 
-    _, loss, stats, new_tstate = Lux.Training.single_train_step!(ADTypes.AutoZygote(), obj_fn, (x, y), tstate)
-    y_pred = get(stats, :y_pred, nothing)
-    return y_pred, loss, stats, new_tstate
+	_, loss, stats, new_tstate = Lux.Training.single_train_step!(ADTypes.AutoZygote(), obj_fn, (x, y), tstate)
+	y_pred = get(stats, :y_pred, nothing)
+	return y_pred, loss, stats, new_tstate
 end
 
 function single_train_step!(ad::ADTypes.AbstractADType, loss_function, data, tstate)
-    if ad isa ADTypes.AutoZygote
-        return single_train_step!(ADTypes.AutoZygote(), loss_function, data, tstate)
-    end
-    error("Unsupported AD backend: $(typeof(ad)). Only AutoZygote is supported in this pipeline.")
+	if ad isa ADTypes.AutoZygote
+		return single_train_step!(ADTypes.AutoZygote(), loss_function, data, tstate)
+	end
+	error("Unsupported AD backend: $(typeof(ad)). Only AutoZygote is supported in this pipeline.")
 end

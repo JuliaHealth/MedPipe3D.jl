@@ -23,9 +23,9 @@ Each augmentation entry carries its own `p_rand` field (probability of being app
 If absent, the augmentation is always applied (p = 1.0).
 """
 function apply_augmentations(images, config_path::String)
-    config   = JSON.parsefile(config_path)
-    aug_list = config["augmentation"]["augmentations"]  # Vector of dicts, each with name/p_rand/params
-    order    = config["augmentation"]["order"]          # Vector of augmentation names
+    config     = JSON.parsefile(config_path)
+    aug_list   = config["augmentation"]["augmentations"]  # Vector of dicts, each with name/p_rand/params
+    order      = config["augmentation"]["order"]          # Vector of augmentation names
 
     # Build a lookup: name → {p_rand, params}
     aug_lookup = Dict(a["name"] => a for a in aug_list)
@@ -64,12 +64,16 @@ Apply a single named augmentation to one image slice.
 function apply_augmentation(image, augmentation::String, params::Dict)
     if augmentation == "Brightness transform"
         return augment_brightness(image, params["value"], params["mode"])
+
     elseif augmentation == "Contrast augmentation transform"
         return augment_contrast(image, params["factor"])
+
     elseif augmentation == "Gamma transform"
         return augment_gamma(image, params["gamma"])
+
     elseif augmentation == "Gaussian noise transform"
         return augment_gaussian_noise(image, params["variance"])
+
     elseif augmentation == "Rician noise transform"
         return augment_rician_noise(image, params["variance"])
     elseif augmentation == "Mirror transform"
@@ -81,33 +85,29 @@ function apply_augmentation(image, augmentation::String, params::Dict)
             Tuple(Int(a) for a in axes_param)
         end
         return augment_mirror(image, axes_tuple)
+
     elseif augmentation == "Scale transform"
-        return augment_scaling(
-            image,
-            params["scale_factor"],
-            Symbol(params["interpolator_enum"]),
-        )
+        return augment_scaling(image, params["scale_factor"],
+                               Symbol(params["interpolator_enum"]))
+
     elseif augmentation == "Gaussian blur transform"
-        return augment_gaussian_blur(
-            image,
-            params["sigma"],
-            params["shape"],
-            params["kernel_size"],
-            params["processing_unit"],
-        )
+        return augment_gaussian_blur(image,
+                                     params["sigma"],
+                                     params["shape"],
+                                     params["kernel_size"],
+                                     params["processing_unit"])
+
     elseif augmentation == "Simulate low-resolution transform"
-        return augment_simulate_low_resolution(
-            image,
-            params["blur_sigma"],
-            params["kernel_size"],
-            params["downsample_scale"],
-        )
+        return augment_simulate_low_resolution(image,
+                                               params["blur_sigma"],
+                                               params["kernel_size"],
+                                               params["downsample_scale"])
+
     elseif augmentation == "Elastic deformation transform"
-        return elastic_deformation3d(
-            image,
-            params["strength"],
-            Symbol(params["interpolator_enum"]),
-        )
+        return elastic_deformation3d(image,
+                                     params["strength"],
+                                     Symbol(params["interpolator_enum"]))
+
     else
         error("Unknown augmentation: \"$augmentation\"")
     end

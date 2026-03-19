@@ -1,10 +1,33 @@
+ENV["MEDPIPE_USE_GPU"] = "true"
+
 using Test
+using LinearAlgebra
+using JLD2
+using MedImages
+include("../src/dependencies.jl")
 include("../src/utils/model_utils.jl")
 include("../src/Configuration/configuration.jl")
 include("../src/utils/img_utils.jl")
 include("../src/utils/parsing_utils.jl")
 include("../src/utils/io_utils.jl")
 include("../src/Data_loading_to_HDF5_with_pre-processing/batch_main.jl")
+include("../src/batch_loader.jl")
+include("../src/Train_Validation_Test/validation.jl")
+include("../src/Train_Validation_Test/test.jl")
+include("../src/Train_Validation_Test/train.jl")
+include("../src/Train_Validation_Test/get_loss_function.jl")
+include("../src/Train_Validation_Test/get_optimiser.jl")
+include("../src/Train_Validation_Test/model.jl")
+include("../src/Train_Validation_Test/splits.jl")
+include("../src/Train_Validation_Test/main_loop.jl")
+include("../src/Post-processing/post-processing.jl")
+include("../src/Morphology_operations/dilation.jl")
+include("../src/Morphology_operations/erosion.jl")
+include("../src/Augmentations/augmentation.jl")
+include("../src/Augmentations/apply.jl")
+include("../src/Batching_channeling/batching_channeling.jl")
+
+
 
 @testset "MedPipe3D Tests" begin
 

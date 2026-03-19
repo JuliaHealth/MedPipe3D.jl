@@ -118,3 +118,43 @@ function medimage_from_array(
         patient_id    = patient_id,
     )
 end
+"""
+`rotate_5d_batch(image_5d, axis, angle)`
+
+A local translation layer that safely passes 5D tensors into the external 
+3D `rotate_mi` function by iterating over the batch and channel dimensions.
+"""
+function rotate_5d_batch(image_5d::AbstractArray{T, 5}, axis::Tuple, angle::Float64) where T
+	# Fast path: skip rotation entirely if angle is 0
+	if angle == 0.0
+		return image_5d
+	end
+
+	# Convert the (1,0,0) tuple into the Int that the external library expects
+	axis_int = findfirst(x -> x != 0, axis)
+	if isnothing(axis_int)
+		return image_5d
+	end
+
+	println("Applying 3D rotation (axis=$axis_int, angle=$angle) to 5D batch...")
+	out = similar(image_5d)
+
+	for b in axes(image_5d, 5)
+		for c in axes(image_5d, 4)
+			# 1. Slice out the 3D volume
+			vol = view(image_5d,:,:,:,c,b)
+
+			# 2. Convert to the external library's expected MedImage struct
+			mi_temp = medimage_from_array(vol)
+
+			# 3. Call the external function explicitly with all required arguments
+			# (Assuming Nearest_neighbour_en is exported by the external library)
+			mi_rotated = rotate_mi(mi_temp, axis_int, angle, Nearest_neighbour_en, true)
+
+			# 4. Put the voxel data back into the 5D tensor
+			out[:, :, :, c, b] = mi_rotated.voxel_data
+		end
+	end
+
+	return out
+end

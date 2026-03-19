@@ -10,5 +10,5 @@ using ADTypes
 using ComputerVisionMetrics
 using MedImages
 using MLDataDevices
-
-CUDA.allowscalar(true)
+using Wandb
+# CUDA.allowscalar(true)
